@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Downloadlink — veilige bestandoverdracht</title>
+  <meta name="description" content="Veilig, snel en simpel bestanden delen met Downloadlink. Gehost in de EU.">
+
+  <!-- Favicon inline als data URI (SVG) -->
+  <link rel="icon" href='data:image/svg+xml,
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+      <rect width="64" height="64" rx="12" fill="%230f4c98"/>
+      <text x="50%" y="58%" text-anchor="middle" font-size="28"
+        font-family="Inter,Arial,sans-serif" font-weight="800" fill="white">DL</text>
+    </svg>'>
+
+  <style>
+    :root {
+      --brand: #0f4c98;   /* zelfde blauw als Olde Hanter */
+      --bg: linear-gradient(180deg,#f7faff,#eef4fb);
+      --ink: #0f172a;
+      --muted: #475569;
+    }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    h1 {
+      font-size: clamp(28px, 5vw, 46px);
+      margin-bottom: 0.4em;
+      color: var(--brand);
+    }
+    p {
+      max-width: 520px;
+      margin: 0 auto 1.5em;
+      color: var(--muted);
+    }
+    a.btn {
+      background: var(--brand);
+      color: #fff;
+      padding: 14px 20px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-weight: 600;
+      box-shadow: 0 6px 18px rgba(0,0,0,.15);
+      transition: background .2s;
+    }
+    a.btn:hover { background: #003366; }
+    footer {
+      margin-top: 3em;
+      font-size: 14px;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <h1>Welkom bij Downloadlink</h1>
+  <p>
+    Veilig, snel en simpel bestanden delen.<br>
+    Gehost in de EU, met vervaldatum en wachtwoord-opties.
+  </p>
+  <a class="btn" href="https://oldehanter.downloadlink.nl/">Start upload</a>
+  <footer>© <span id="y"></span> Downloadlink</footer>
+
+  <script>document.getElementById('y').textContent = new Date().getFullYear()</script>
+</body>
+</html>
