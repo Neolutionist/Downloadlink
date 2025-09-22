@@ -3,166 +3,318 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Downloadlink – Snel, veilig & professioneel delen</title>
+  <meta name="description" content="Downloadlink: snel, veilig en professioneel grote bestanden versturen. Betaalopties, versiebeheer en duidelijke expiratie.">
   <meta name="referrer" content="no-referrer" />
-  <title>Downloadlink – Veilig & snel bestanden delen</title>
+  <meta name="color-scheme" content="light dark" />
 
-  <!-- Favicon (gecentreerd) -->
+  <!-- Perfect gecentreerde favicon (vector, crisp @ alle DPI's) -->
   <link
     rel="icon"
     type="image/svg+xml"
-    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23224632'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dominant-baseline='central' font-family='Inter,Arial,Helvetica,sans-serif' font-weight='700' font-size='24' fill='white'%3EDL%3C/text%3E%3C/svg%3E"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3CradialGradient id='g' cx='50%25' cy='40%25' r='70%25'%3E%3Cstop offset='0%25' stop-color='%232a5b41'/%3E%3Cstop offset='100%25' stop-color='%231c3b2a'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='32' cy='32' r='30' fill='url(%23g)'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dominant-baseline='central' font-family='Inter,Arial,Helvetica,sans-serif' font-weight='800' font-size='24' fill='white'%3EDL%3C/text%3E%3C/svg%3E"
   />
 
   <style>
-    :root{
-      --green-deep: #224632;
-      --green-muted: #6F8F7B;
-      --cream: #F5F3EA;
-      --ink: #1C1F1D;
-      --muted: #616a63;
-      --radius: 16px;
-      --shadow: 0 14px 40px rgba(0,0,0,.18);
+    /* ===========
+       Design tokens
+       =========== */
+    :root {
+      /* Premium palet: natuur, fris, betrouwbaar */
+      --green-900: #1f3a2c;
+      --green-800: #224632;
+      --green-600: #2f6a4d;
+      --green-400: #66a487;
+      --cream-0:  #F6F4EB;   /* kaart */
+      --ink-900:  #131715;   /* tekst */
+      --ink-600:  #616A63;   /* subtitel */
+      --focus:    #00B389;
+
+      --radius-lg: 22px;
+      --radius-md: 14px;
+      --shadow-lg: 0 30px 80px rgba(0,0,0,.22);
+      --shadow-md: 0 18px 40px rgba(0,0,0,.16);
+
+      /* Achtergrond afbeelding (kies lokaal óf URL) */
+      /* Lokale optie: url('assets/bg-nature.jpg') */
+      --bg-image: url('https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=1920&auto=format&fit=crop');
     }
 
-    *, *::before, *::after { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --cream-0:#F1EFE8;
+        --ink-900:#0e100f;
+      }
+    }
+
+    /* ===========
+       Reset / base
+       =========== */
+    *,*::before,*::after { box-sizing: border-box; }
+    html,body { height: 100%; margin: 0; }
     body {
       font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, Helvetica, sans-serif;
-      color: var(--ink);
-      background: #000;
-      overflow: hidden;
+      color: var(--ink-900);
+      background: var(--green-900);
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
     }
 
-    .hero-bg {
-      position: fixed;
-      inset: 0;
+    /* ===========
+       Hero achtergrond (glans + noise + subtiele parallax)
+       =========== */
+    .bg {
+      position: fixed; inset: 0; z-index: -3;
       background-image:
-        linear-gradient(180deg, rgba(0,0,0,.35) 0%, rgba(0,0,0,.45) 60%, rgba(0,0,0,.55) 100%),
-        url('https://images.unsplash.com/photo-1500989145603-8e7ef71d639e?q=80&w=1920&auto=format&fit=crop');
+        linear-gradient(180deg, rgba(0,0,0,.35) 0%, rgba(0,0,0,.45) 55%, rgba(0,0,0,.55) 100%),
+        var(--bg-image);
       background-size: cover;
-      background-position: center;
-      filter: saturate(1.05) contrast(1.02);
-      z-index: -2;
+      background-position: 50% 42%;
+      will-change: transform;
+      transform: translateZ(0);
+    }
+    .grain {
+      position: fixed; inset: 0; z-index: -2;
+      background: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2P4//8/AwAI/AL+gqL6xQAAAABJRU5ErkJggg==") repeat;
+      opacity: .18;
+      mix-blend-mode: soft-light;
+      pointer-events: none;
     }
 
+    /* ===========
+       Lay-out shell
+       =========== */
     .shell {
+      min-height: 100dvh;
       display: grid;
       place-items: center;
-      min-height: 100dvh;
-      padding: clamp(16px, 2vw, 28px);
+      padding: clamp(16px, 3vw, 48px);
     }
 
+    /* ===========
+       Super card (glasmorph / premium)
+       =========== */
     .card {
-      width: 100%;
-      max-width: 880px;
-      background: var(--cream);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: clamp(28px, 5vw, 56px) clamp(22px, 4vw, 48px);
+      width: min(1200px, 95vw);
+      background: color-mix(in srgb, var(--cream-0) 90%, transparent);
+      backdrop-filter: blur(12px) saturate(1.05);
+      border: 1px solid color-mix(in srgb, var(--green-800) 14%, transparent);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      padding: clamp(28px, 4vw, 56px);
+      position: relative;
+      overflow: clip;
     }
 
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: clamp(18px, 2.2vw, 26px);
+    /* decoratieve highlight ring */
+    .card::before {
+      content:"";
+      position:absolute; inset:-1px;
+      border-radius: inherit;
+      pointer-events:none;
+      background:
+        radial-gradient(60% 60% at 15% 10%, rgba(255,255,255,.45), transparent 55%),
+        radial-gradient(80% 80% at 85% 95%, rgba(102,164,135,.18), transparent 62%);
+      mix-blend-mode: soft-light;
     }
-    .brand-logo {
-      width: 44px; height: 44px; border-radius: 50%;
-      background: var(--green-deep);
-      display: grid; place-items:center;
-      color: #fff; font-weight: 800;
-      font-size: 0.9rem;
+
+    /* ===========
+       Brand bar
+       =========== */
+    .brand {
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: clamp(18px, 2.4vw, 28px);
+    }
+    .badge {
+      width: 48px; aspect-ratio: 1; border-radius: 50%;
+      display: grid; place-items: center;
+      background: radial-gradient(80% 80% at 35% 30%, var(--green-600), var(--green-800));
+      color: #fff; font-weight: 800; letter-spacing:.3px;
+      box-shadow: 0 12px 28px rgba(34,70,50,.35), inset 0 0 0 2px rgba(255,255,255,.08);
     }
     .brand-title {
       font-size: clamp(18px, 2.2vw, 22px);
-      font-weight: 700;
-      color: var(--green-deep);
+      font-weight: 800;
+      color: var(--green-800);
+    }
+
+    /* ===========
+       Hero content
+       =========== */
+    .hero {
+      display: grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap: clamp(18px, 4vw, 48px);
+      align-items: center;
+    }
+    @media (max-width: 980px) {
+      .hero { grid-template-columns: 1fr; }
     }
 
     h1 {
-      margin: 0 0 6px;
-      color: var(--green-deep);
-      font-size: clamp(34px, 6vw, 72px);
-      line-height: 1.1;
-      letter-spacing: .5px;
+      margin: 0 0 .3em;
+      color: var(--green-800);
+      font-size: clamp(40px, 7vw, 82px);
+      line-height: 1.05;
+      letter-spacing: .4px;
     }
     .sub {
-      margin: 0 0 clamp(18px, 2.2vw, 24px);
-      color: var(--muted);
-      font-size: clamp(15px, 2.1vw, 18px);
-      max-width: 52ch;
+      margin: 0 0 1.1em;
+      color: var(--ink-600);
+      font-size: clamp(16px, 2.1vw, 19px);
+      max-width: 60ch;
     }
 
-    .cta-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-top: clamp(14px, 2vw, 18px);
+    .pills {
+      display:flex; flex-wrap:wrap; gap:10px;
+      margin: .4rem 0 1.4rem;
     }
+    .pill {
+      padding: 8px 12px; border-radius: 999px;
+      background: color-mix(in srgb, var(--green-400) 12%, transparent);
+      color: var(--green-800);
+      font-weight: 700; font-size: .9rem;
+      border: 1px solid color-mix(in srgb, var(--green-800) 14%, transparent);
+    }
+
+    /* CTA’s */
+    .cta { display:flex; flex-wrap: wrap; gap: 12px; }
     .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: .55rem;
-      padding: 14px 20px;
-      border-radius: 12px;
-      font-weight: 700;
-      font-size: 1rem;
-      text-decoration: none;
-      transition: transform .1s ease, box-shadow .25s ease, background .25s ease;
+      --b: var(--green-800);
+      display: inline-flex; align-items:center; justify-content:center;
+      gap: .6rem; padding: 14px 20px;
+      border-radius: 14px; font-weight: 800; font-size: 1rem;
+      text-decoration: none; border: 2px solid var(--b); transition: transform .12s ease, box-shadow .25s ease, background .25s ease;
     }
     .btn-primary {
-      background: var(--green-deep);
-      color: #fff;
-      box-shadow: 0 10px 30px rgba(34,70,50,.28);
+      background: var(--green-800); color: #fff;
+      box-shadow: 0 14px 36px rgba(34,70,50,.28);
     }
     .btn-primary:hover { transform: translateY(-1px); }
-    .btn-primary:active { transform: translateY(0); }
-
     .btn-ghost {
-      background: transparent;
-      color: var(--green-deep);
-      border: 2px solid var(--green-deep);
+      color: var(--green-800); background: transparent;
     }
-    .btn-ghost:hover {
-      color: var(--green-deep);
-      transform: translateY(-1px);
+    .btn-ghost:hover { transform: translateY(-1px); }
+    .btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+    /* Side panel (vertrouwen/USP) */
+    .side {
+      background: #ffffffcc;
+      border: 1px solid color-mix(in srgb, var(--green-800) 12%, transparent);
+      border-radius: var(--radius-md);
+      padding: clamp(16px, 2.8vw, 24px);
+      box-shadow: var(--shadow-md);
+      backdrop-filter: blur(6px);
+    }
+    .side h3 {
+      margin: 0 0 .6rem;
+      color: var(--green-800);
+      font-size: clamp(18px, 2.2vw, 22px);
+    }
+    .list {
+      display:grid; gap: 10px; margin:0; padding:0; list-style:none;
+      color: var(--ink-600); font-size: .97rem;
+    }
+    .list li { display:flex; gap:10px; align-items:flex-start; }
+    .tick {
+      width: 18px; height: 18px; flex: 0 0 18px; margin-top: 3px;
+      border-radius: 4px; background: var(--green-600);
+      box-shadow: inset 0 -1px 0 rgba(0,0,0,.15);
+      display:grid; place-items:center; color:#fff; font-size: 12px; font-weight:800;
     }
 
+    /* Foot note */
     .foot {
-      margin-top: clamp(20px, 2.5vw, 26px);
-      font-size: .9rem; color: var(--muted);
+      margin-top: clamp(22px, 3vw, 30px);
+      display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between;
+      color: var(--ink-600); font-size:.95rem;
+    }
+    .sep { opacity:.35; }
+
+    /* Subtiele parallax (muis) — respecteert reduced-motion */
+    @media (pointer: fine) and (prefers-reduced-motion: no-preference) {
+      .shell:hover ~ .bg { transition: transform .25s ease; }
+      body { perspective: 1200px; }
+      .bg { transform-origin: center; }
     }
   </style>
 </head>
 <body>
-  <div class="hero-bg" aria-hidden="true"></div>
-  <div class="shell">
-    <section class="card">
-      <div class="brand">
-        <div class="brand-logo" aria-hidden="true">DL</div>
+  <!-- Dynamische achtergrond -->
+  <div class="bg" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <main class="shell">
+    <section class="card" role="region" aria-label="Introductie Downloadlink">
+      <header class="brand" aria-label="Downloadlink merkbalk">
+        <div class="badge" aria-hidden="true">DL</div>
         <div class="brand-title">Downloadlink</div>
+      </header>
+
+      <div class="hero">
+        <div>
+          <h1>Professioneel bestanden delen<span class="sep">—</span> snel & veilig</h1>
+          <p class="sub">
+            Verstuur grote bestanden met vertrouwen. Heldere expiratie, beveiligde links, en optionele betaalopties. Geen gedoe, wél zekerheid.
+          </p>
+
+          <div class="pills">
+            <span class="pill">Versleutelde overdracht</span>
+            <span class="pill">Transparante expiratie</span>
+            <span class="pill">GDPR-proof</span>
+            <span class="pill">Premium support</span>
+          </div>
+
+          <nav class="cta" aria-label="Belangrijkste acties">
+            <a class="btn btn-primary" href="https://oldehanter.downloadlink.nl/contact" target="_blank" rel="noopener noreferrer">
+              Start aanvraag
+            </a>
+            <a class="btn btn-ghost" href="#meer" onclick="document.getElementById('usp').scrollIntoView({behavior:'smooth'}); return false;">
+              Hoe werkt het?
+            </a>
+          </nav>
+        </div>
+
+        <aside class="side" id="usp" aria-label="Waarom Downloadlink">
+          <h3>Waarom Downloadlink?</h3>
+          <ul class="list">
+            <li><span class="tick">✓</span><span>Snelle uploads en downloads, wereldwijd schaalbaar.</span></li>
+            <li><span class="tick">✓</span><span>Expiratie op datum of aantal downloads — automatisch opschonen.</span></li>
+            <li><span class="tick">✓</span><span>Betaalopties per aanvraag (indien gewenst) — professioneel afgehandeld.</span></li>
+            <li><span class="tick">✓</span><span>Duidelijke status en notificaties voor verzender en ontvanger.</span></li>
+          </ul>
+        </aside>
       </div>
 
-      <h1>Veilig delen, professioneel afgehandeld</h1>
-      <p class="sub">Verstuur en beheer grote bestanden met vertrouwen. Transparant, veilig en razendsnel.</p>
-
-      <div class="cta-row">
-        <a class="btn btn-primary" href="https://oldehanter.downloadlink.nl/contact" target="_blank" rel="noopener noreferrer">
-          Start aanvraag
-        </a>
-        <a class="btn btn-ghost" href="#uitleg" onclick="alert('Meer informatie volgt.'); return false;">
-          Meer informatie
-        </a>
-      </div>
-
-      <div class="foot">&copy; <span id="y"></span> Downloadlink. Alle rechten voorbehouden.</div>
+      <footer class="foot" aria-label="Juridisch en status">
+        <span>&copy; <span id="y"></span> Downloadlink</span>
+        <span class="sep">|</span>
+        <span>Veilig. Transparant. Snel.</span>
+      </footer>
     </section>
-  </div>
+  </main>
 
   <script>
+    // jaartal
     document.getElementById('y').textContent = new Date().getFullYear();
+
+    // Subtiele parallax — respecteer prefers-reduced-motion
+    (function () {
+      const bg = document.querySelector('.bg');
+      const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+      if (mq.matches || !bg) return;
+
+      let px = 0, py = 0, tx = 0, ty = 0, raf;
+      function loop(){ tx += (px - tx) * 0.06; ty += (py - ty) * 0.06; bg.style.transform = `translate3d(${tx}px,${ty}px,0)`; raf = requestAnimationFrame(loop); }
+      loop();
+      window.addEventListener('mousemove', (e) => {
+        const x = (e.clientX / window.innerWidth) - .5;
+        const y = (e.clientY / window.innerHeight) - .5;
+        px = x * -18; py = y * -12;
+      }, { passive: true });
+    })();
   </script>
 </body>
 </html>
