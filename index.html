@@ -6,188 +6,142 @@
   <meta name="referrer" content="no-referrer" />
   <title>Downloadlink – Veilig & snel bestanden delen</title>
 
-  <!-- GECENTREERDE inline favicon (SVG) -->
+  <!-- Gecentreerde inline favicon -->
   <link
     rel="icon"
     type="image/svg+xml"
-    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%2300D1B2'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle' font-family='Inter,Arial,Helvetica,sans-serif' font-weight='700' font-size='24' fill='white'%3EDL%3C/text%3E%3C/svg%3E"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%2300AEEF'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle' font-family='Inter,Arial,Helvetica,sans-serif' font-weight='700' font-size='24' fill='white'%3EDL%3C/text%3E%3C/svg%3E"
   />
 
   <style>
-    /* Basis */
     :root {
-      --brand: #00d1b2;
-      --brand-700: #00a38a;
-      --bg-1: #111;
-      --fg: #fff;
-      --muted: #a6a6a6;
-      --card: rgba(255,255,255,0.06);
-      --card-stroke: rgba(255,255,255,0.08);
-      --shadow: 0 10px 30px rgba(0,0,0,0.35);
+      --brand: #00aeef;
+      --brand-hover: #008ec2;
+      --text-main: #222;
+      --text-muted: #666;
+      --card-bg: #fff;
+      --shadow: 0 8px 24px rgba(0,0,0,0.08);
       --radius: 14px;
     }
 
     * { box-sizing: border-box; }
-    html, body { height: 100%; }
+    html, body { height: 100%; margin: 0; }
     body {
-      margin: 0;
-      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, Helvetica, "Apple Color Emoji", "Segoe UI Emoji";
-      color: var(--fg);
-      background: var(--bg-1);
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, Helvetica, sans-serif;
+      color: var(--text-main);
+      background: #f9fafc;
       overflow: hidden;
     }
 
-    /* Dynamische, snelle achtergrond (pure CSS, GPU friendly) */
+    /* Dynamische blobs (licht en subtiel) */
     .bg {
       position: fixed;
       inset: 0;
       overflow: hidden;
       z-index: -1;
     }
-
-    /* Vloeiende blob-gradient lagen */
     .blob {
       position: absolute;
       border-radius: 50%;
-      filter: blur(60px);
-      opacity: 0.55;
+      filter: blur(80px);
+      opacity: 0.35;
       will-change: transform;
-      mix-blend-mode: screen;
     }
     .blob:nth-child(1) {
-      width: 45vmax; height: 45vmax;
-      background: radial-gradient(circle at 30% 30%, #0ea5e9 0%, transparent 60%);
-      animation: drift-1 28s ease-in-out infinite alternate;
-      top: -10vmax; left: -5vmax;
+      width: 50vmax; height: 50vmax;
+      background: #00aeef;
+      top: -15vmax; left: -10vmax;
+      animation: drift1 30s infinite alternate ease-in-out;
     }
     .blob:nth-child(2) {
-      width: 55vmax; height: 55vmax;
-      background: radial-gradient(circle at 60% 40%, var(--brand) 0%, transparent 55%);
-      animation: drift-2 32s ease-in-out infinite alternate;
-      bottom: -15vmax; right: -10vmax;
+      width: 45vmax; height: 45vmax;
+      background: #ff6ec7;
+      bottom: -10vmax; right: -12vmax;
+      animation: drift2 40s infinite alternate ease-in-out;
     }
     .blob:nth-child(3) {
-      width: 50vmax; height: 50vmax;
-      background: radial-gradient(circle at 40% 60%, #8b5cf6 0%, transparent 55%);
-      animation: drift-3 36s ease-in-out infinite alternate;
-      top: 20vmax; left: 25vmax;
+      width: 40vmax; height: 40vmax;
+      background: #9dffb0;
+      top: 20vmax; left: 20vmax;
+      animation: drift3 35s infinite alternate ease-in-out;
     }
+    @keyframes drift1 { to { transform: translate(6vmax,4vmax) scale(1.05);} }
+    @keyframes drift2 { to { transform: translate(-4vmax,3vmax) scale(1.07);} }
+    @keyframes drift3 { to { transform: translate(3vmax,-3vmax) scale(0.95);} }
 
-    @keyframes drift-1 {
-      0%   { transform: translate3d(0,0,0) scale(1); }
-      100% { transform: translate3d(6vmax,-2vmax,0) scale(1.05); }
-    }
-    @keyframes drift-2 {
-      0%   { transform: translate3d(0,0,0) scale(1); }
-      100% { transform: translate3d(-5vmax,4vmax,0) scale(1.06); }
-    }
-    @keyframes drift-3 {
-      0%   { transform: translate3d(0,0,0) scale(1); }
-      100% { transform: translate3d(4vmax,2vmax,0) scale(0.98); }
-    }
-
-    /* Subtiele ruis bovenop voor ‘diepte’ */
-    .grain {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='table' tableValues='0 0 0 0 0 0 0 0.018 0'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
-      opacity: .18;
-      mix-blend-mode: overlay;
-      z-index: 0;
-    }
-
-    /* Layout */
     .shell {
-      position: relative;
-      min-height: 100dvh;
       display: grid;
       place-items: center;
-      padding: clamp(20px,3vw,48px);
-      z-index: 1;
-    }
-
-    .card {
-      width: min(720px, 92vw);
-      background: var(--card);
-      border: 1px solid var(--card-stroke);
-      box-shadow: var(--shadow);
-      border-radius: var(--radius);
-      padding: clamp(28px, 4vw, 48px);
-      backdrop-filter: blur(8px) saturate(1.1);
+      min-height: 100vh;
+      padding: 20px;
       text-align: center;
     }
 
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 48px 36px;
+      max-width: 680px;
+      width: 100%;
+      backdrop-filter: blur(6px);
+    }
+
     h1 {
-      margin: 0 0 10px;
+      margin: 0 0 12px;
       font-size: clamp(28px, 4vw, 40px);
-      letter-spacing: 0.2px;
+      color: var(--text-main);
     }
     .tagline {
       margin: 0 0 28px;
-      color: var(--muted);
-      font-size: clamp(14px, 2.2vw, 18px);
-      line-height: 1.55;
+      font-size: clamp(15px, 2vw, 18px);
+      color: var(--text-muted);
+      line-height: 1.6;
     }
 
     .cta {
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: .6rem;
       background: var(--brand);
       color: #fff;
-      padding: 14px 22px;
+      padding: 14px 24px;
       font-weight: 600;
       font-size: 1rem;
-      border-radius: 10px;
+      border-radius: 8px;
       text-decoration: none;
-      box-shadow: 0 6px 20px rgba(0,209,178,.35);
-      transition: transform .08s ease, background .25s ease, box-shadow .25s ease;
+      box-shadow: 0 6px 16px rgba(0,174,239,.3);
+      transition: background .25s ease, transform .1s ease;
     }
-    .cta:hover {
-      background: var(--brand-700);
-      box-shadow: 0 8px 24px rgba(0,163,138,.40);
-    }
-    .cta:active { transform: translateY(1px); }
-
-    .cta svg { width: 20px; height: 20px; }
+    .cta:hover { background: var(--brand-hover); transform: translateY(-2px); }
+    .cta:active { transform: translateY(0); }
 
     footer {
-      margin-top: 18px;
-      color: var(--muted);
-      font-size: .9rem;
+      margin-top: 24px;
+      color: var(--text-muted);
+      font-size: .85rem;
     }
   </style>
 </head>
 <body>
-  <!-- Dynamische achtergrond -->
   <div class="bg">
     <div class="blob"></div>
     <div class="blob"></div>
     <div class="blob"></div>
   </div>
-  <div class="grain"></div>
 
-  <!-- Content -->
   <main class="shell">
-    <section class="card" role="region" aria-label="Intro">
+    <section class="card">
       <h1>Downloadlink</h1>
-      <p class="tagline">Veilig en snel bestanden delen – professioneel, simpel en betrouwbaar.</p>
+      <p class="tagline">Veilig, professioneel en snel bestanden delen met je klanten of collega’s.</p>
 
-      <!--
-        VOOR NU verwijst de knop naar de Olde Hanter contact/aanvraagpagina.
-        Als je later je eigen aanvraag-/betaalpagina host, vervang dan de href door bijvoorbeeld 'aanvraag.html'.
-      -->
       <a
         class="cta"
         href="https://oldehanter.downloadlink.nl/contact"
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="Ga naar het aanvraagformulier met betaalopties"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-        </svg>
         Start aanvraag
       </a>
 
@@ -196,7 +150,6 @@
   </main>
 
   <script>
-    // Huidig jaar in footer
     document.getElementById('y').textContent = new Date().getFullYear();
   </script>
 </body>
