@@ -10,9 +10,9 @@ Gebruik:
 
 Omgevingsvariabelen:
   DATA_DIR        (default: /var/data)
-  CANONICAL_HOST  (default: ol dehanter.downloadlink.nl)
+  CANONICAL_HOST  (default: downloadlink.nl)
   TENANT_HOSTS    (optioneel, mapping 'tenant=host,tenant2=host2')
-                   voorbeeld: "oldehanter=oldehanter.downloadlink.nl, klantx=klantx.downloadlink.nl"
+                   voorbeeld: "bartels=bartels.downloadlink.nl,acme=acme.downloadlink.nl"
 """
 
 import os
@@ -26,11 +26,14 @@ import argparse
 DATA_DIR = os.environ.get("DATA_DIR", "/var/data")
 DB_PATH  = os.path.join(DATA_DIR, "files_multi.db")
 
-CANONICAL_HOST = os.environ.get("CANONICAL_HOST", "oldehanter.downloadlink.nl").strip().lower()
+# Standaard basisdomein zonder oude verwijzingen
+CANONICAL_HOST = os.environ.get("CANONICAL_HOST", "downloadlink.nl").strip().lower()
+
 
 def _parse_tenant_hosts(envval: str) -> Dict[str, str]:
     """
-    Verwacht bv.: "oldehanter=oldehanter.downloadlink.nl, foo=foo.downloadlink.nl"
+    Parse env TENANT_HOSTS, bv.:
+      "bartels=bartels.downloadlink.nl, acme=acme.downloadlink.nl"
     """
     out: Dict[str, str] = {}
     for part in (envval or "").split(","):
@@ -44,6 +47,7 @@ def _parse_tenant_hosts(envval: str) -> Dict[str, str]:
             out[k] = v
     return out
 
+
 TENANT_HOSTS = _parse_tenant_hosts(os.environ.get("TENANT_HOSTS", ""))
 
 
@@ -54,6 +58,7 @@ def human_bytes(n: int) -> str:
         if x < 1024.0 or u == "TB":
             return (f"{x:.1f} {u}" if u != "B" else f"{int(x)} {u}")
         x /= 1024.0
+    return "0 B"
 
 
 def parse_iso(dt: str) -> datetime:
@@ -62,40 +67,28 @@ def parse_iso(dt: str) -> datetime:
     return datetime.fromisoformat(dt)
 
 
-def load_packages(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
-    conn.row_factory = sqlite3.Row
-    rows = conn.execute("""
-        SELECT token, title, tenant_id, created_at, expires_at
-        FROM packages
-        ORDER BY expires_at ASC
-    """).fetchall()
-    return [dict(r) for r in rows]
-
-
-def package_stats(conn: sqlite3.Connection, token: str, tenant_id: str) -> Tuple[int, int]:
-    """Aantal bestanden en totale grootte voor één pakket (token + tenant)."""
-    row = conn.execute("""
-        SELECT COUNT(*) AS cnt, COALESCE(SUM(size_bytes), 0) AS total
-        FROM items
-        WHERE token = ? AND tenant_id = ?
-    """, (token, tenant_id)).fetchone()
-    return (int(row[0] or 0), int(row[1] or 0))
-
-
-def list_items(conn: sqlite3.Connection, token: str, tenant_id: str) -> List[Dict[str, Any]]:
-    conn.row_factory = sqlite3.Row
-    rows = conn.execute("""
-        SELECT id, name, path, size_bytes
-        FROM items
-        WHERE token = ? AND tenant_id = ?
-        ORDER BY path, name
-    """, (token, tenant_id)).fetchall()
-    return [dict(r) for r in rows]
+def _base_domain(host: str) -> str:
+    """
+    Bepaal het basisdomein uit een hostnaam.
+    Simpel: neem de laatste twee labels (bv. 'app.downloadlink.nl' -> 'downloadlink.nl').
+    """
+    parts = (host or "").split(".")
+    return ".".join(parts[-2:]) if len(parts) >= 2 else host
 
 
 def host_for_tenant(tenant_id: str) -> str:
-    """Bepaal hostnaam voor tenant; val terug op CANONICAL_HOST."""
-    return TENANT_HOSTS.get((tenant_id or "").lower(), CANONICAL_HOST)
+    """
+    Bepaal hostnaam voor tenant.
+      1) Als expliciet in TENANT_HOSTS -> gebruik die.
+      2) Anders: <tenant>.<base-domain> (bv. bartels.downloadlink.nl).
+      3) Fallback: CANONICAL_HOST.
+    """
+    t = (tenant_id or "").strip().lower()
+    if t in TENANT_HOSTS:
+        return TENANT_HOSTS[t]
+    if t:
+        return f"{t}.{_base_domain(CANONICAL_HOST)}"
+    return CANONICAL_HOST
 
 
 def build_package_url(tenant_id: str, token: str) -> str:
@@ -112,6 +105,39 @@ def build_file_url(tenant_id: str, token: str, item_id: int) -> str:
     return f"https://{host}/file/{tok}/{int(item_id)}"
 
 
+def load_packages(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute("""
+        SELECT token, title, tenant_id, created_at, expires_at
+        FROM packages
+        ORDER BY expires_at ASC
+    """).fetchall()
+    return [dict(r) for r in rows]
+
+
+def package_stats(conn: sqlite3.Connection, token: str, tenant_id: str) -> Tuple[int, int]:
+    """Aantal bestanden en totale grootte voor één pakket (token + tenant)."""
+    conn.row_factory = sqlite3.Row
+    row = conn.execute("""
+        SELECT COUNT(*) AS cnt, COALESCE(SUM(size_bytes), 0) AS total
+        FROM items
+        WHERE token = ? AND tenant_id = ?
+    """, (token, tenant_id)).fetchone()
+    # row is Row, maar ook indexeerbaar op positie
+    return (int(row["cnt"] or 0), int(row["total"] or 0))
+
+
+def list_items(conn: sqlite3.Connection, token: str, tenant_id: str) -> List[Dict[str, Any]]:
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute("""
+        SELECT id, name, path, size_bytes
+        FROM items
+        WHERE token = ? AND tenant_id = ?
+        ORDER BY path, name
+    """, (token, tenant_id)).fetchall()
+    return [dict(r) for r in rows]
+
+
 # -------------------- Main --------------------
 def main(show_details: bool = False) -> None:
     if not os.path.exists(DB_PATH):
@@ -119,10 +145,13 @@ def main(show_details: bool = False) -> None:
         return
 
     conn = sqlite3.connect(DB_PATH)
+    # Zorg dat overal named access kan
+    conn.row_factory = sqlite3.Row
 
     pkgs = load_packages(conn)
     if not pkgs:
         print("ℹ️  Geen pakketten gevonden.")
+        conn.close()
         return
 
     now = datetime.now(timezone.utc)
@@ -152,7 +181,7 @@ def main(show_details: bool = False) -> None:
         cnt, total = package_stats(conn, token, tenant_id)
         link = build_package_url(tenant_id, token)
 
-        print("—"*86)
+        print("—" * 86)
         print(f"Tenant       : {tenant_id}")
         print(f"Token        : {token}")
         print(f"Title        : {title}")
@@ -172,7 +201,7 @@ def main(show_details: bool = False) -> None:
                 print(f"   - {path or name}   [{size}]")
                 print(f"       ↳ {file_url}")
 
-    print("—"*86)
+    print("—" * 86)
     print("Klaar.\n")
     conn.close()
 
