@@ -44,7 +44,9 @@ DB_PATH = DATA_DIR / "files_multi.db"
 
 def db():
     """SQLite connectie. Met threads in Flask/Gunicorn is check_same_thread=False handig."""
-    return sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.row_factory = sqlite3.Row   # <-- hierdoor kun je row["kolomnaam"] gebruiken
+    return conn
 
 # ---------------- Config uit omgeving ----------------
 def _env(name: str, default: str | None = None, required: bool = False) -> str:
