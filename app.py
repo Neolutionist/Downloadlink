@@ -30,8 +30,16 @@ from zipstream import ZipStream  # zipstream-ng
 
 # ---------------- Config ----------------
 BASE_DIR = Path(__file__).parent
-DATA_DIR = Path(os.environ.get("DATA_DIR", "/var/data"))
-DB_PATH  = DATA_DIR / "files_multi.db"
+
+# Zet default naar een map binnen je project (wel writeable op Render)
+DATA_DIR = Path(os.environ.get("DATA_DIR", BASE_DIR / "data"))
+DATA_DIR.mkdir(parents=True, exist_ok=True)  # <-- map aanmaken
+
+DB_PATH = DATA_DIR / "files_multi.db"
+
+def db():
+    # optioneel: check_same_thread=False als je threads gebruikt
+    return sqlite3.connect(DB_PATH)
 
 AUTH_EMAIL = os.environ.get("AUTH_EMAIL", "info@oldehanter.nl")
 AUTH_PASSWORD = "Hulsmaat"  # vast wachtwoord voor het inloggen
