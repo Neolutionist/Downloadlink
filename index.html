@@ -8,7 +8,7 @@
   <meta name="referrer" content="no-referrer" />
   <meta name="color-scheme" content="light dark" />
 
-  <!-- Perfect gecentreerde favicon (vector, crisp @ alle DPI's) -->
+  <!-- Crisp vector favicon (DL) -->
   <link
     rel="icon"
     type="image/svg+xml"
@@ -16,238 +16,156 @@
   />
 
   <style>
-    /* ===========
-       Design tokens
-       =========== */
+    /* =====================
+       DESIGN TOKENS
+       ===================== */
     :root {
-      /* Premium palet: natuur, fris, betrouwbaar */
-      --green-900: #1f3a2c;
-      --green-800: #224632;
-      --green-600: #2f6a4d;
+      --ink-900: #0f1412;
+      --ink-700: #3b463f;
+      --ink-600: #636f67;
+      --green-950: #0f241a;
+      --green-900: #132b20;
+      --green-800: #1b3a2b;
+      --green-600: #2a6047;
       --green-400: #66a487;
-      --cream-0:  #F6F4EB;   /* kaart */
-      --ink-900:  #131715;   /* tekst */
-      --ink-600:  #616A63;   /* subtitel */
+      --cream-0:  #F6F4EB;
       --focus:    #00B389;
 
-      --radius-lg: 22px;
+      --radius-xl: 26px;
+      --radius-lg: 20px;
       --radius-md: 14px;
-      --shadow-lg: 0 30px 80px rgba(0,0,0,.22);
-      --shadow-md: 0 18px 40px rgba(0,0,0,.16);
 
-      /* Achtergrond afbeelding (kies lokaal óf URL) */
-      /* Lokale optie: url('assets/bg-nature.jpg') */
-      --bg-image: url('https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=1920&auto=format&fit=crop');
+      --shadow-1: 0 18px 45px rgba(0,0,0,.20);
+      --shadow-2: 0 40px 120px rgba(0,0,0,.35);
+
+      --maxw: 1200px;
     }
 
     @media (prefers-color-scheme: dark) {
-      :root {
-        --cream-0:#F1EFE8;
-        --ink-900:#0e100f;
-      }
+      :root { --cream-0:#F1EFE8; --ink-900:#0b0f0d; }
     }
 
-    /* ===========
-       Reset / base
-       =========== */
-    *,*::before,*::after { box-sizing: border-box; }
-    html,body { height: 100%; margin: 0; }
-    body {
+    /* =====================
+       RESET / BASE
+       ===================== */
+    *,*::before,*::after{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{
       font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, Helvetica, sans-serif;
       color: var(--ink-900);
-      background: var(--green-900);
-      overflow-x: hidden;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
+      background: var(--green-950);
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
       text-rendering: optimizeLegibility;
+      overflow-x:hidden;
     }
 
-    /* ===========
-       Hero achtergrond (glans + noise + subtiele parallax)
-       =========== */
-    .bg {
-      position: fixed; inset: 0; z-index: -3;
-      background-image:
-        linear-gradient(180deg, rgba(0,0,0,.35) 0%, rgba(0,0,0,.45) 55%, rgba(0,0,0,.55) 100%),
-        var(--bg-image);
-      background-size: cover;
-      background-position: 50% 42%;
-      will-change: transform;
-      transform: translateZ(0);
+    /* =====================
+       GPU BACKDROP (WebGL canvas)
+       ===================== */
+    #bg {
+      position: fixed; inset:0; z-index:-2; display:block;
+      width:100vw; height:100dvh; background:#0c1712;
     }
-    .grain {
-      position: fixed; inset: 0; z-index: -2;
-      background: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2P4//8/AwAI/AL+gqL6xQAAAABJRU5ErkJggg==") repeat;
-      opacity: .18;
-      mix-blend-mode: soft-light;
-      pointer-events: none;
-    }
+    .grain { position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.13;
+      background:url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2P4//8/AwAI/AL+gqL6xQAAAABJRU5ErkJggg==") repeat; mix-blend-mode:soft-light }
 
-    /* ===========
-       Lay-out shell
-       =========== */
-    .shell {
-      min-height: 100dvh;
-      display: grid;
-      place-items: center;
-      padding: clamp(16px, 3vw, 48px);
-    }
+    /* =====================
+       LAYOUT SHELL
+       ===================== */
+    .shell { min-height:100dvh; display:grid; place-items:center; padding:clamp(16px,3vw,48px); }
 
-    /* ===========
-       Super card (glasmorph / premium)
-       =========== */
+    /* =====================
+       GLASS CARD + ORNAMENTS
+       ===================== */
     .card {
-      width: min(1200px, 95vw);
-      background: color-mix(in srgb, var(--cream-0) 90%, transparent);
-      backdrop-filter: blur(12px) saturate(1.05);
-      border: 1px solid color-mix(in srgb, var(--green-800) 14%, transparent);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-lg);
-      padding: clamp(28px, 4vw, 56px);
-      position: relative;
-      overflow: clip;
+      width:min(var(--maxw),95vw);
+      background: color-mix(in srgb, var(--cream-0) 88%, transparent);
+      backdrop-filter: blur(14px) saturate(1.08);
+      border:1px solid color-mix(in srgb, var(--green-800) 16%, transparent);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-2);
+      padding:clamp(26px,4vw,56px);
+      position:relative; overflow:clip; transform-style:preserve-3d;
+      will-change:transform;
     }
-
-    /* decoratieve highlight ring */
-    .card::before {
-      content:"";
-      position:absolute; inset:-1px;
-      border-radius: inherit;
-      pointer-events:none;
+    .card::before{content:"";position:absolute;inset:-2px;border-radius:inherit;pointer-events:none;
       background:
         radial-gradient(60% 60% at 15% 10%, rgba(255,255,255,.45), transparent 55%),
         radial-gradient(80% 80% at 85% 95%, rgba(102,164,135,.18), transparent 62%);
-      mix-blend-mode: soft-light;
+      mix-blend-mode:soft-light
     }
 
-    /* ===========
-       Brand bar
-       =========== */
-    .brand {
-      display: flex; align-items: center; gap: 14px;
-      margin-bottom: clamp(18px, 2.4vw, 28px);
+    /* =====================
+       BRAND BAR
+       ===================== */
+    .brand{display:flex;align-items:center;gap:14px;margin-bottom:clamp(18px,2.4vw,28px)}
+    .badge{width:48px;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;letter-spacing:.3px;
+      background:radial-gradient(80% 80% at 35% 30%, var(--green-600), var(--green-800));
+      box-shadow:0 12px 28px rgba(34,70,50,.35), inset 0 0 0 2px rgba(255,255,255,.08)
     }
-    .badge {
-      width: 48px; aspect-ratio: 1; border-radius: 50%;
-      display: grid; place-items: center;
-      background: radial-gradient(80% 80% at 35% 30%, var(--green-600), var(--green-800));
-      color: #fff; font-weight: 800; letter-spacing:.3px;
-      box-shadow: 0 12px 28px rgba(34,70,50,.35), inset 0 0 0 2px rgba(255,255,255,.08);
-    }
-    .brand-title {
-      font-size: clamp(18px, 2.2vw, 22px);
-      font-weight: 800;
-      color: var(--green-800);
-    }
+    .brand-title{font-size:clamp(18px,2.2vw,22px);font-weight:800;color:var(--green-800)}
 
-    /* ===========
-       Hero content
-       =========== */
-    .hero {
-      display: grid;
-      grid-template-columns: 1.15fr .85fr;
-      gap: clamp(18px, 4vw, 48px);
-      align-items: center;
-    }
-    @media (max-width: 980px) {
-      .hero { grid-template-columns: 1fr; }
-    }
+    /* =====================
+       HERO GRID
+       ===================== */
+    .hero{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(18px,4vw,48px);align-items:center}
+    @media (max-width:980px){ .hero{ grid-template-columns:1fr } }
 
-    h1 {
-      margin: 0 0 .3em;
-      color: var(--green-800);
-      font-size: clamp(40px, 7vw, 82px);
-      line-height: 1.05;
-      letter-spacing: .4px;
+    h1{margin:0 0 .3em; font-weight:900; line-height:1.02; letter-spacing:.2px;
+      font-size:clamp(42px,7.2vw,92px);
+      background: conic-gradient(from 210deg at 50% 50%, #1b3a2b, #66a487 30%, #1b3a2b 60%, #66a487 100%);
+      background-size:200% 200%; -webkit-background-clip:text; background-clip:text; color:transparent;
+      animation: sheen 8s linear infinite;
+      text-wrap:balance
     }
-    .sub {
-      margin: 0 0 1.1em;
-      color: var(--ink-600);
-      font-size: clamp(16px, 2.1vw, 19px);
-      max-width: 60ch;
-    }
+    @keyframes sheen { to { background-position: 200% 200% } }
 
-    .pills {
-      display:flex; flex-wrap:wrap; gap:10px;
-      margin: .4rem 0 1.4rem;
-    }
-    .pill {
-      padding: 8px 12px; border-radius: 999px;
-      background: color-mix(in srgb, var(--green-400) 12%, transparent);
-      color: var(--green-800);
-      font-weight: 700; font-size: .9rem;
-      border: 1px solid color-mix(in srgb, var(--green-800) 14%, transparent);
-    }
+    .sub{margin:0 0 1.1em;color:var(--ink-600);font-size:clamp(16px,2.1vw,19px);max-width:62ch}
 
-    /* CTA’s */
-    .cta { display:flex; flex-wrap: wrap; gap: 12px; }
-    .btn {
-      --b: var(--green-800);
-      display: inline-flex; align-items:center; justify-content:center;
-      gap: .6rem; padding: 14px 20px;
-      border-radius: 14px; font-weight: 800; font-size: 1rem;
-      text-decoration: none; border: 2px solid var(--b); transition: transform .12s ease, box-shadow .25s ease, background .25s ease;
-    }
-    .btn-primary {
-      background: var(--green-800); color: #fff;
-      box-shadow: 0 14px 36px rgba(34,70,50,.28);
-    }
-    .btn-primary:hover { transform: translateY(-1px); }
-    .btn-ghost {
-      color: var(--green-800); background: transparent;
-    }
-    .btn-ghost:hover { transform: translateY(-1px); }
-    .btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+    .pills{display:flex;flex-wrap:wrap;gap:10px;margin:.4rem 0 1.4rem}
+    .pill{padding:8px 12px;border-radius:999px;background:color-mix(in srgb, var(--green-400) 12%, transparent);
+      color:var(--green-800);font-weight:700;font-size:.92rem;border:1px solid color-mix(in srgb, var(--green-800) 14%, transparent)}
 
-    /* Side panel (vertrouwen/USP) */
-    .side {
-      background: #ffffffcc;
-      border: 1px solid color-mix(in srgb, var(--green-800) 12%, transparent);
-      border-radius: var(--radius-md);
-      padding: clamp(16px, 2.8vw, 24px);
-      box-shadow: var(--shadow-md);
-      backdrop-filter: blur(6px);
+    .cta{display:flex;flex-wrap:wrap;gap:12px}
+    .btn{--b:var(--green-800);display:inline-flex;align-items:center;justify-content:center;gap:.6rem;padding:14px 20px;border-radius:16px;
+      font-weight:900;font-size:1rem;text-decoration:none;border:2px solid var(--b);transition:transform .12s ease, box-shadow .25s ease, background .25s ease;
+      will-change:transform
     }
-    .side h3 {
-      margin: 0 0 .6rem;
-      color: var(--green-800);
-      font-size: clamp(18px, 2.2vw, 22px);
-    }
-    .list {
-      display:grid; gap: 10px; margin:0; padding:0; list-style:none;
-      color: var(--ink-600); font-size: .97rem;
-    }
-    .list li { display:flex; gap:10px; align-items:flex-start; }
-    .tick {
-      width: 18px; height: 18px; flex: 0 0 18px; margin-top: 3px;
-      border-radius: 4px; background: var(--green-600);
-      box-shadow: inset 0 -1px 0 rgba(0,0,0,.15);
-      display:grid; place-items:center; color:#fff; font-size: 12px; font-weight:800;
-    }
+    .btn-primary{background:var(--green-800);color:#fff;box-shadow:0 14px 36px rgba(34,70,50,.28)}
+    .btn-primary:hover{transform:translateY(-1px)}
+    .btn-ghost{color:var(--green-800);background:transparent}
+    .btn-ghost:hover{transform:translateY(-1px)}
+    .btn:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
 
-    /* Foot note */
-    .foot {
-      margin-top: clamp(22px, 3vw, 30px);
-      display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between;
-      color: var(--ink-600); font-size:.95rem;
-    }
-    .sep { opacity:.35; }
+    /* Side panel */
+    .side{background:#ffffffcc;border:1px solid color-mix(in srgb, var(--green-800) 12%, transparent);border-radius:var(--radius-lg);
+      padding:clamp(16px,2.8vw,24px);box-shadow:var(--shadow-1);backdrop-filter: blur(8px)}
+    .side h3{margin:0 0 .6rem;color:var(--green-800);font-size:clamp(18px,2.2vw,22px)}
+    .list{display:grid;gap:10px;margin:0;padding:0;list-style:none;color:var(--ink-600);font-size:.97rem}
+    .list li{display:flex;gap:10px;align-items:flex-start}
+    .tick{width:18px;height:18px;flex:0 0 18px;margin-top:3px;border-radius:4px;background:var(--green-600);box-shadow:inset 0 -1px 0 rgba(0,0,0,.15);display:grid;place-items:center;color:#fff;font-size:12px;font-weight:800}
 
-    /* Subtiele parallax (muis) — respecteert reduced-motion */
-    @media (pointer: fine) and (prefers-reduced-motion: no-preference) {
-      .shell:hover ~ .bg { transition: transform .25s ease; }
-      body { perspective: 1200px; }
-      .bg { transform-origin: center; }
+    .foot{margin-top:clamp(22px,3vw,30px);display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between;color:var(--ink-600);font-size:.95rem}
+    .sep{opacity:.35}
+
+    /* Magnetic buttons (visual hint) */
+    .magnet { position: relative; transform-style:preserve-3d }
+
+    /* Respect reduced motion: freeze animations + show static gradient */
+    @media (prefers-reduced-motion: reduce) {
+      h1 { animation: none }
+      #bg { display: none }
+      body { background: radial-gradient(1200px 800px at 20% 10%, #132b20, #0f241a) }
     }
   </style>
 </head>
 <body>
-  <!-- Dynamische achtergrond -->
-  <div class="bg" aria-hidden="true"></div>
+  <!-- GPU background (WebGL) -->
+  <canvas id="bg" aria-hidden="true"></canvas>
   <div class="grain" aria-hidden="true"></div>
 
   <main class="shell">
-    <section class="card" role="region" aria-label="Introductie Downloadlink">
+    <section class="card" role="region" aria-label="Introductie Downloadlink" id="card">
       <header class="brand" aria-label="Downloadlink merkbalk">
         <div class="badge" aria-hidden="true">DL</div>
         <div class="brand-title">Downloadlink</div>
@@ -255,10 +173,8 @@
 
       <div class="hero">
         <div>
-          <h1>Professioneel bestanden delen<span class="sep">—</span> snel & veilig</h1>
-          <p class="sub">
-            Verstuur grote bestanden met vertrouwen. Heldere expiratie, beveiligde links, en optionele betaalopties. Geen gedoe, wél zekerheid.
-          </p>
+          <h1>Professioneel bestanden delen<span class="sep">—</span> snel &amp; veilig</h1>
+          <p class="sub">Verstuur grote bestanden met vertrouwen. Heldere expiratie, beveiligde links, en optionele betaalopties. Geen gedoe, wél zekerheid.</p>
 
           <div class="pills">
             <span class="pill">Versleutelde overdracht</span>
@@ -267,13 +183,9 @@
             <span class="pill">Premium support</span>
           </div>
 
-          <nav class="cta" aria-label="Belangrijkste acties">
-            <a class="btn btn-primary" href="https://oldehanter.downloadlink.nl/contact" target="_blank" rel="noopener noreferrer">
-              Start aanvraag
-            </a>
-            <a class="btn btn-ghost" href="#meer" onclick="document.getElementById('usp').scrollIntoView({behavior:'smooth'}); return false;">
-              Hoe werkt het?
-            </a>
+          <nav class="cta magnet" aria-label="Belangrijkste acties">
+            <a class="btn btn-primary" href="https://oldehanter.downloadlink.nl/contact" target="_blank" rel="noopener noreferrer">Start aanvraag</a>
+            <a class="btn btn-ghost" href="#meer" onclick="document.getElementById('usp').scrollIntoView({behavior:'smooth'}); return false;">Hoe werkt het?</a>
           </nav>
         </div>
 
@@ -297,23 +209,135 @@
   </main>
 
   <script>
-    // jaartal
+    // =========================
+    //  UTIL
+    // =========================
+    const prefersReduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     document.getElementById('y').textContent = new Date().getFullYear();
 
-    // Subtiele parallax — respecteer prefers-reduced-motion
-    (function () {
-      const bg = document.querySelector('.bg');
-      const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-      if (mq.matches || !bg) return;
-
-      let px = 0, py = 0, tx = 0, ty = 0, raf;
-      function loop(){ tx += (px - tx) * 0.06; ty += (py - ty) * 0.06; bg.style.transform = `translate3d(${tx}px,${ty}px,0)`; raf = requestAnimationFrame(loop); }
+    // =========================
+    //  3D tilt of the glass card (subtle, GPU)
+    // =========================
+    (function tilt(){
+      if (prefersReduced) return;
+      const el = document.getElementById('card');
+      let rx=0, ry=0, tx=0, ty=0, raf;
+      const damp = 0.08;
+      const max = 10; // deg
+      function loop(){
+        rx += (tx - rx) * damp; ry += (ty - ry) * damp;
+        el.style.transform = `rotateX(${ry}deg) rotateY(${rx}deg)`; raf = requestAnimationFrame(loop);
+      }
       loop();
-      window.addEventListener('mousemove', (e) => {
-        const x = (e.clientX / window.innerWidth) - .5;
-        const y = (e.clientY / window.innerHeight) - .5;
-        px = x * -18; py = y * -12;
-      }, { passive: true });
+      window.addEventListener('pointermove', (e)=>{
+        const x = (e.clientX/innerWidth - .5) * 2; // -1..1
+        const y = (e.clientY/innerHeight - .5) * 2;
+        tx = x * -max; ty = y * max;
+      }, {passive:true});
+    })();
+
+    // =========================
+    //  Magnetic buttons – follows cursor a bit
+    // =========================
+    (function magnet(){
+      if (prefersReduced) return;
+      const wrap = document.querySelector('.magnet');
+      let px=0,py=0,tx=0,ty=0; const damp=.12; const range=18;
+      function loop(){ tx += (px-tx)*damp; ty += (py-ty)*damp; wrap.style.transform = `translate3d(${tx}px,${ty}px,0)`; requestAnimationFrame(loop) }
+      loop();
+      window.addEventListener('pointermove', e=>{ const x=e.clientX/innerWidth-.5; const y=e.clientY/innerHeight-.5; px=x*range; py=y*range }, {passive:true});
+    })();
+
+    // =========================
+    //  WEBGL BACKGROUND – ultra‑light shader (no libs)
+    //  ~0.5ms on modern devices, scales down on low DPI
+    // =========================
+    (function shader(){
+      if (prefersReduced) return; // disabled when reduced motion
+      const canvas = document.getElementById('bg');
+      const gl = canvas.getContext('webgl', { antialias:false, depth:false, stencil:false, preserveDrawingBuffer:false });
+      if(!gl) return;
+
+      const vert = `
+        attribute vec2 p; void main(){ gl_Position = vec4(p,0.0,1.0); }
+      `;
+      const frag = `
+        precision highp float; uniform vec2 r; uniform float t; uniform vec2 m;
+
+        // hash & noise – tiny and fast
+        float h21(vec2 p){ return fract(sin(dot(p, vec2(27.16898, 91.13253))) * 43758.5453); }
+        float n2(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.-2.*f);
+          float a=h21(i), b=h21(i+vec2(1.,0.)), c=h21(i+vec2(0.,1.)), d=h21(i+vec2(1.,1.));
+          return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
+        }
+        float fbm(vec2 p){ float s=0., a=.55; for(int i=0;i<5;i++){ s+=a*n2(p); p*=2.02; a*=.55; } return s; }
+
+        void main(){
+          vec2 uv = (gl_FragCoord.xy / r.xy);
+          vec2 p = (uv - .5);
+          p.x *= r.x/r.y;
+
+          // Cursor attraction (parallax) – in NDC
+          vec2 q = p + (m * 0.12);
+
+          // Organic waves + digital scanlines
+          float t1 = t * 0.12;
+          float f = fbm(q*2.0 + vec2(t1, -t1*0.7));
+          float g = fbm(q*5.0 - vec2(t1*0.5, t1));
+          float band = smoothstep(0.25, .8, f + g*0.6);
+
+          // Color palette – emerald / teal aurora
+          vec3 a = vec3(0.06, 0.12, 0.10);
+          vec3 b = vec3(0.10, 0.24, 0.18);
+          vec3 c = vec3(0.20, 0.64, 0.48);
+          vec3 col = mix(b, c, band);
+
+          // Vignette + subtle grid shimmer
+          float vig = smoothstep(0.95, 0.35, length(p));
+          float grid = sin((uv.x+uv.y+t*0.25)*200.0)*0.003;
+          col = a + col*vig + grid;
+
+          gl_FragColor = vec4(col, 1.);
+        }
+      `;
+
+      function compile(type, src){ const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s }
+      const pr = gl.createProgram();
+      gl.attachShader(pr, compile(gl.VERTEX_SHADER, vert));
+      gl.attachShader(pr, compile(gl.FRAGMENT_SHADER, frag));
+      gl.linkProgram(pr); gl.useProgram(pr);
+
+      const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+      const loc = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+      const uR = gl.getUniformLocation(pr, 'r');
+      const uT = gl.getUniformLocation(pr, 't');
+      const uM = gl.getUniformLocation(pr, 'm');
+
+      let start = performance.now();
+      let mx=0, my=0; // -0.5..0.5
+
+      function resize(){
+        const pratio = Math.min(devicePixelRatio || 1, 1.6); // cap for perf
+        const w = Math.floor(innerWidth * pratio);
+        const h = Math.floor(innerHeight * pratio);
+        if (canvas.width === w && canvas.height === h) return;
+        canvas.width = w; canvas.height = h; canvas.style.width = '100vw'; canvas.style.height = '100dvh';
+        gl.viewport(0,0,w,h);
+        gl.uniform2f(uR, w, h);
+      }
+      addEventListener('resize', resize, {passive:true}); resize();
+
+      addEventListener('pointermove', e=>{ mx = (e.clientX/innerWidth - .5); my = (e.clientY/innerHeight - .5); }, {passive:true});
+
+      (function loop(){
+        const t = (performance.now() - start) / 1000;
+        gl.uniform1f(uT, t);
+        gl.uniform2f(uM, mx, -my);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        requestAnimationFrame(loop);
+      })();
     })();
   </script>
 </body>
