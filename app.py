@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# ========= MiniTransfer – Olde Hanter (met abonnementbeheer + PayPal webhook) =========
-# - Login met vast wachtwoord "Hulsmaat" (e-mail vooraf ingevuld)
-# - Upload (files/folders) naar B2 (S3) met voortgang
-# - Downloadpagina met zip-stream en precheck
-# - Contact/aanvraag met PayPal abonnement-knop (pas zichtbaar bij volledig geldig formulier)
-# - Abonnementbeheer: opslaan subscriptionID, opzeggen, plan wijzigen (revise)
-# - Webhook: verifieert PayPal-events en mailt bij activatie/annulering/suspense/reactivatie en bij elke capture
-# - Domeinen: ondersteunt minitransfer.onrender.com én downloadlink.nl in get_base_host()
-# ======================================================================================
+# ========= MiniTransfer – Olde Hanter =========
+# Render-proof start met veilige paden, logging en env-validatie
+# =============================================
 
-import os, re, uuid, smtplib, sqlite3, logging, base64, json, urllib.request
+import os
+import re
+import uuid
+import json
+import base64
+import logging
+import sqlite3
+import smtplib
+import urllib.request
 from email.message import EmailMessage
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -22,50 +24,60 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 import boto3
 from botocore.config import Config as BotoConfig
 from botocore.exceptions import ClientError, BotoCoreError
-from zipstream import ZipStream  # zipstream-ng
 
-# ---------------- Config ----------------
-BASE_DIR = Path(__file__).parent
+# ---------------- Logging ----------------
+logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+log = logging.getLogger("app")
 
-# Zet default naar een map binnen je project (wel writeable op Render)
+# ---------------- Paths / Storage ----------------
+BASE_DIR = Path(__file__).parent                      # /opt/render/project/src
+# Schrijfbare map op Render. Mag via env worden overschreven.
 DATA_DIR = Path(os.environ.get("DATA_DIR", BASE_DIR / "data"))
-DATA_DIR.mkdir(parents=True, exist_ok=True)  # <-- map aanmaken
+DATA_DIR.mkdir(parents=True, exist_ok=True)           # maak aan vóór DB-connects
 
 DB_PATH = DATA_DIR / "files_multi.db"
 
 def db():
-    # optioneel: check_same_thread=False als je threads gebruikt
-    return sqlite3.connect(DB_PATH)
+    """SQLite connectie. Met threads in Flask/Gunicorn is check_same_thread=False handig."""
+    return sqlite3.connect(DB_PATH, check_same_thread=False)
 
-AUTH_EMAIL = os.environ.get("AUTH_EMAIL", "info@oldehanter.nl")
-AUTH_PASSWORD = "Hulsmaat"  # vast wachtwoord voor het inloggen
+# ---------------- Config uit omgeving ----------------
+def _env(name: str, default: str | None = None, required: bool = False) -> str:
+    val = os.environ.get(name, default)
+    if required and not val:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return val or ""
 
-S3_BUCKET       = os.environ["S3_BUCKET"]
-S3_REGION       = os.environ.get("S3_REGION", "eu-central-003")
-S3_ENDPOINT_URL = os.environ["S3_ENDPOINT_URL"]
+AUTH_EMAIL    = _env("AUTH_EMAIL", "info@oldehanter.nl")
+AUTH_PASSWORD = "Hulsmaat"  # vast wachtwoord voor inloggen
 
-SMTP_HOST = os.environ.get("SMTP_HOST")
-SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
-SMTP_USER = os.environ.get("SMTP_USER")
-SMTP_PASS = os.environ.get("SMTP_PASS")
-SMTP_FROM = os.environ.get("SMTP_FROM") or SMTP_USER
-MAIL_TO   = os.environ.get("MAIL_TO", "Patrick@oldehanter.nl")
+S3_BUCKET       = _env("S3_BUCKET", required=True)
+S3_REGION       = _env("S3_REGION", "eu-central-003")
+S3_ENDPOINT_URL = _env("S3_ENDPOINT_URL", required=True)
 
-# PayPal Subscriptions
-PAYPAL_CLIENT_ID     = os.environ.get("PAYPAL_CLIENT_ID")
-PAYPAL_CLIENT_SECRET = os.environ.get("PAYPAL_CLIENT_SECRET")
-PAYPAL_API_BASE      = os.environ.get("PAYPAL_API_BASE", "https://api-m.paypal.com")  # sandbox: https://api-m.sandbox.paypal.com
+SMTP_HOST = _env("SMTP_HOST")
+SMTP_PORT = int(_env("SMTP_PORT", "587"))
+SMTP_USER = _env("SMTP_USER")
+SMTP_PASS = _env("SMTP_PASS")
+SMTP_FROM = _env("SMTP_FROM", SMTP_USER or "")
+MAIL_TO   = _env("MAIL_TO", "Patrick@oldehanter.nl")
 
-PAYPAL_PLAN_0_5  = os.environ.get("PAYPAL_PLAN_0_5", "P-9SU96133E7732223VNDIEDIY")  # 0,5 TB – €12/mnd
-PAYPAL_PLAN_1    = os.environ.get("PAYPAL_PLAN_1",   "P-0E494063742081356NDIEDUI")  # 1 TB   – €15/mnd
-PAYPAL_PLAN_2    = os.environ.get("PAYPAL_PLAN_2",   "P-8TG57271W98348431NDIEECA")  # 2 TB   – €20/mnd
-PAYPAL_PLAN_5    = os.environ.get("PAYPAL_PLAN_5",   "P-78R23653MC041353LNDIEEOQ")  # 5 TB   – €30/mnd
+# PayPal
+PAYPAL_CLIENT_ID     = _env("PAYPAL_CLIENT_ID")
+PAYPAL_CLIENT_SECRET = _env("PAYPAL_CLIENT_SECRET")
+PAYPAL_API_BASE      = _env("PAYPAL_API_BASE", "https://api-m.paypal.com")  # sandbox: https://api-m.sandbox.paypal.com
 
-PAYPAL_WEBHOOK_ID = os.environ.get("PAYPAL_WEBHOOK_ID")  # vanuit Developer Dashboard → My Apps & Credentials → jouw app → Webhooks
+PAYPAL_PLAN_0_5 = _env("PAYPAL_PLAN_0_5", "P-9SU96133E7732223VNDIEDIY")
+PAYPAL_PLAN_1   = _env("PAYPAL_PLAN_1",   "P-0E494063742081356NDIEDUI")
+PAYPAL_PLAN_2   = _env("PAYPAL_PLAN_2",   "P-8TG57271W98348431NDIEECA")
+PAYPAL_PLAN_5   = _env("PAYPAL_PLAN_5",   "P-78R23653MC041353LNDIEEOQ")
+
+PAYPAL_WEBHOOK_ID = _env("PAYPAL_WEBHOOK_ID")
 
 PLAN_MAP = {
     "0.5": PAYPAL_PLAN_0_5,
@@ -75,6 +87,7 @@ PLAN_MAP = {
 }
 REVERSE_PLAN_MAP = {v: k for k, v in PLAN_MAP.items() if v}
 
+# ---------------- S3 Client ----------------
 s3 = boto3.client(
     "s3",
     region_name=S3_REGION,
@@ -82,31 +95,17 @@ s3 = boto3.client(
     config=BotoConfig(s3={"addressing_style": "path"}, signature_version="s3v4"),
 )
 
+# ---------------- Flask app ----------------
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "olde-hanter-simple-secret"
+app.config["SECRET_KEY"] = _env("SECRET_KEY", "olde-hanter-simple-secret")
 
-# ---- Multi-tenant configuratie (HOST -> tenant) ----
-TENANTS = {
-    "oldehanter.downloadlink.nl": {
-        "slug": "oldehanter",
-        "mail_to": os.environ.get("MAIL_TO", "Patrick@oldehanter.nl"),
-    }
-}
-
-def current_tenant():
-    host = (request.headers.get("Host") or "").lower()
-    return TENANTS.get(host) or TENANTS["oldehanter.downloadlink.nl"]
-# ----------------------------------------------------
-
-# --- Redirect config toevoegen ---
-from werkzeug.middleware.proxy_fix import ProxyFix
-
+# Reverse proxy headers (Render) en forced https-links
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 app.config.update(PREFERRED_URL_SCHEME="https", SESSION_COOKIE_SECURE=True)
 
-import os
-CANONICAL_HOST = os.environ.get("CANONICAL_HOST", "oldehanter.downloadlink.nl").lower()
-OLD_HOST = os.environ.get("OLD_HOST", "minitransfer.onrender.com").lower()
+# Canonical redirect (optioneel: van Render-subdomein naar eigen domein)
+CANONICAL_HOST = _env("CANONICAL_HOST", "oldehanter.downloadlink.nl").lower()
+OLD_HOST       = _env("OLD_HOST", "minitransfer.onrender.com").lower()
 
 @app.before_request
 def _redirect_old_host():
@@ -114,17 +113,19 @@ def _redirect_old_host():
     if host == OLD_HOST:
         new_url = request.url.replace(f"//{OLD_HOST}", f"//{CANONICAL_HOST}", 1)
         return redirect(new_url, code=308)
-# --- Einde redirect config ---
 
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger("app")
+# ---------------- Multi-tenant (host → tenant) ----------------
+TENANTS = {
+    "oldehanter.downloadlink.nl": {
+        "slug": "oldehanter",
+        "mail_to": MAIL_TO,
+    }
+}
+def current_tenant():
+    host = (request.headers.get("Host") or "").lower()
+    return TENANTS.get(host) or TENANTS["oldehanter.downloadlink.nl"]
 
-# --------------- DB --------------------
-def db():
-    c = sqlite3.connect(DB_PATH)
-    c.row_factory = sqlite3.Row
-    return c
-
+# ---------------- DB-init & migraties ----------------
 def init_db():
     c = db()
     c.execute("""
@@ -157,7 +158,6 @@ def init_db():
       )
     """)
     c.commit(); c.close()
-init_db()
 
 def _col_exists(conn, table, col):
     cur = conn.execute(f"PRAGMA table_info({table})")
@@ -166,23 +166,21 @@ def _col_exists(conn, table, col):
 def migrate_add_tenant_columns():
     conn = db()
     try:
-        # packages
         if not _col_exists(conn, "packages", "tenant_id"):
             conn.execute("ALTER TABLE packages ADD COLUMN tenant_id TEXT")
             conn.execute("UPDATE packages SET tenant_id = 'oldehanter' WHERE tenant_id IS NULL")
-        # items
         if not _col_exists(conn, "items", "tenant_id"):
             conn.execute("ALTER TABLE items ADD COLUMN tenant_id TEXT")
             conn.execute("UPDATE items SET tenant_id = 'oldehanter' WHERE tenant_id IS NULL")
-        # subscriptions
         if not _col_exists(conn, "subscriptions", "tenant_id"):
             conn.execute("ALTER TABLE subscriptions ADD COLUMN tenant_id TEXT")
             conn.execute("UPDATE subscriptions SET tenant_id = 'oldehanter' WHERE tenant_id IS NULL")
-
         conn.commit()
     finally:
         conn.close()
 
+# Init meteen bij import
+init_db()
 migrate_add_tenant_columns()
 
 # -------------- CSS --------------
