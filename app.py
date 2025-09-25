@@ -53,9 +53,9 @@ def _env(name: str, default: str | None = None, required: bool = False) -> str:
         raise RuntimeError(f"Missing required environment variable: {name}")
     return val or ""
 
-+AUTH_EMAIL    = _env("AUTH_EMAIL", "info@downloadlink.nl")
-+# Vast wachtwoord (bij voorkeur via env!). Default = jouw aangeleverde wachtwoord.
-+AUTH_PASSWORD = _env("AUTH_PASSWORD", "Gr8w0rkm8!")
+AUTH_EMAIL    = _env("AUTH_EMAIL", "info@downloadlink.nl")
+# Vast wachtwoord -> liever via env zetten:
+AUTH_PASSWORD = _env("AUTH_PASSWORD", "Gr8w0rkm8!")
 
 S3_BUCKET       = _env("S3_BUCKET", required=True)
 S3_REGION       = _env("S3_REGION", "eu-central-003")
@@ -66,7 +66,7 @@ SMTP_PORT = int(_env("SMTP_PORT", "587"))
 SMTP_USER = _env("SMTP_USER")
 SMTP_PASS = _env("SMTP_PASS")
 SMTP_FROM = _env("SMTP_FROM", SMTP_USER or "")
-MAIL_TO   = _env("MAIL_TO", "patricklankhorst@hotmail.com")
+MAIL_TO   = _env("MAIL_TO", "info@downloadlink.nl")
 
 # PayPal
 PAYPAL_CLIENT_ID     = _env("PAYPAL_CLIENT_ID")
@@ -100,11 +100,9 @@ s3 = boto3.client(
 app = Flask(__name__)
 app.config["SECRET_KEY"] = _env("SECRET_KEY", "downloadlink-simple-secret")
 
-# Reverse proxy headers (Render) en forced https-links
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
-app.config.update(PREFERRED_URL_SCHEME="https", SESSION_COOKIE_SECURE=True)
+CANONICAL_HOST = _env("CANONICAL_HOST", "downloadlink.nl").lower()
+OLD_HOST       = _env("OLD_HOST", "minitransfer.onrender.com").lower()
 
-# ---------------- Multi-tenant (host → tenant) ----------------
 TENANTS = {
     "downloadlink.nl": {
         "slug": "downloadlink",
@@ -168,7 +166,7 @@ def migrate_add_tenant_columns():
         conn.commit()
     finally:
         conn.close()
-
+        
 # Init meteen bij import
 init_db()
 migrate_add_tenant_columns()
@@ -270,12 +268,12 @@ input[type=file]::file-selector-button{
 """
 
 # --- Favicon (SVG) ---
-+FAVICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-+  <rect width="64" height="64" rx="12" fill="#1E3A8A"/>
-+  <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle"
-+        font-family="Segoe UI, Roboto, sans-serif" font-size="28" font-weight="700"
-+        fill="white">DL</text>
-+</svg>"""
+FAVICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="12" fill="#1E3A8A"/>
+  <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle"
+        font-family="Segoe UI, Roboto, sans-serif" font-size="28" font-weight="700"
+        fill="white">DL</text>
+</svg>"""
 
 from urllib.parse import quote as _q
 FAVICON_DATA_URL = "data:image/svg+xml;utf8," + _q(FAVICON_SVG)
