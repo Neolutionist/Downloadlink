@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# ========= MiniTransfer – Olde Hanter =========
+# ============= DownloadLink ==================
 # Render-proof start met veilige paden, logging en env-validatie
 # =============================================
 
@@ -53,8 +53,9 @@ def _env(name: str, default: str | None = None, required: bool = False) -> str:
         raise RuntimeError(f"Missing required environment variable: {name}")
     return val or ""
 
-AUTH_EMAIL    = _env("AUTH_EMAIL", "info@oldehanter.nl")
-AUTH_PASSWORD = "Hulsmaat"  # vast wachtwoord voor inloggen
++AUTH_EMAIL    = _env("AUTH_EMAIL", "info@downloadlink.nl")
++# Vast wachtwoord (bij voorkeur via env!). Default = jouw aangeleverde wachtwoord.
++AUTH_PASSWORD = _env("AUTH_PASSWORD", "Gr8w0rkm8!")
 
 S3_BUCKET       = _env("S3_BUCKET", required=True)
 S3_REGION       = _env("S3_REGION", "eu-central-003")
@@ -65,7 +66,7 @@ SMTP_PORT = int(_env("SMTP_PORT", "587"))
 SMTP_USER = _env("SMTP_USER")
 SMTP_PASS = _env("SMTP_PASS")
 SMTP_FROM = _env("SMTP_FROM", SMTP_USER or "")
-MAIL_TO   = _env("MAIL_TO", "Patrick@oldehanter.nl")
+MAIL_TO   = _env("MAIL_TO", "patricklankhorst@hotmail.com")
 
 # PayPal
 PAYPAL_CLIENT_ID     = _env("PAYPAL_CLIENT_ID")
@@ -97,33 +98,22 @@ s3 = boto3.client(
 
 # ---------------- Flask app ----------------
 app = Flask(__name__)
-app.config["SECRET_KEY"] = _env("SECRET_KEY", "olde-hanter-simple-secret")
+app.config["SECRET_KEY"] = _env("SECRET_KEY", "downloadlink-simple-secret")
 
 # Reverse proxy headers (Render) en forced https-links
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 app.config.update(PREFERRED_URL_SCHEME="https", SESSION_COOKIE_SECURE=True)
 
-# Canonical redirect (optioneel: van Render-subdomein naar eigen domein)
-CANONICAL_HOST = _env("CANONICAL_HOST", "oldehanter.downloadlink.nl").lower()
-OLD_HOST       = _env("OLD_HOST", "minitransfer.onrender.com").lower()
-
-@app.before_request
-def _redirect_old_host():
-    host = (request.headers.get("Host") or "").lower()
-    if host == OLD_HOST:
-        new_url = request.url.replace(f"//{OLD_HOST}", f"//{CANONICAL_HOST}", 1)
-        return redirect(new_url, code=308)
-
 # ---------------- Multi-tenant (host → tenant) ----------------
 TENANTS = {
-    "oldehanter.downloadlink.nl": {
-        "slug": "oldehanter",
+    "downloadlink.nl": {
+        "slug": "downloadlink",
         "mail_to": MAIL_TO,
     }
 }
 def current_tenant():
     host = (request.headers.get("Host") or "").lower()
-    return TENANTS.get(host) or TENANTS["oldehanter.downloadlink.nl"]
+    return TENANTS.get(host) or TENANTS["downloadlink.nl"]
 
 # ---------------- DB-init & migraties ----------------
 def init_db():
@@ -168,13 +158,13 @@ def migrate_add_tenant_columns():
     try:
         if not _col_exists(conn, "packages", "tenant_id"):
             conn.execute("ALTER TABLE packages ADD COLUMN tenant_id TEXT")
-            conn.execute("UPDATE packages SET tenant_id = 'oldehanter' WHERE tenant_id IS NULL")
+            conn.execute("UPDATE packages SET tenant_id = 'downloadlink' WHERE tenant_id IS NULL")
         if not _col_exists(conn, "items", "tenant_id"):
             conn.execute("ALTER TABLE items ADD COLUMN tenant_id TEXT")
-            conn.execute("UPDATE items SET tenant_id = 'oldehanter' WHERE tenant_id IS NULL")
+            conn.execute("UPDATE items SET tenant_id = 'downloadlink' WHERE tenant_id IS NULL")
         if not _col_exists(conn, "subscriptions", "tenant_id"):
             conn.execute("ALTER TABLE subscriptions ADD COLUMN tenant_id TEXT")
-            conn.execute("UPDATE subscriptions SET tenant_id = 'oldehanter' WHERE tenant_id IS NULL")
+            conn.execute("UPDATE subscriptions SET tenant_id = 'downloadlink' WHERE tenant_id IS NULL")
         conn.commit()
     finally:
         conn.close()
@@ -280,12 +270,12 @@ input[type=file]::file-selector-button{
 """
 
 # --- Favicon (SVG) ---
-FAVICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#1E3A8A"/>
-  <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle"
-        font-family="Segoe UI, Roboto, sans-serif" font-size="28" font-weight="700"
-        fill="white">OH</text>
-</svg>"""
++FAVICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
++  <rect width="64" height="64" rx="12" fill="#1E3A8A"/>
++  <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle"
++        font-family="Segoe UI, Roboto, sans-serif" font-size="28" font-weight="700"
++        fill="white">DL</text>
++</svg>"""
 
 from urllib.parse import quote as _q
 FAVICON_DATA_URL = "data:image/svg+xml;utf8," + _q(FAVICON_SVG)
@@ -309,7 +299,7 @@ HTML_HEAD_ICON = f"""
 
 LOGIN_HTML = """
 <!doctype html><html lang="nl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Inloggen – Olde Hanter</title>{{ head_icon|safe }}<style>{{ base_css }}</style></head><body>
+<title>Inloggen – DownloadLink</title>{{ head_icon|safe }}<style>{{ base_css }}</style></head><body>
 {{ bg|safe }}
 <div class="wrap"><div class="card" style="max-width:460px;margin:auto">
   <h1 style="color:var(--brand)">Inloggen</h1>
@@ -367,14 +357,14 @@ LOGIN_HTML = """
 })();
 </script>
 
-  <p class="footer small">Olde Hanter Bouwconstructies • Bestandentransfer</p>
+  <p class="footer small">DownloadLink.nl • Bestandentransfer</p>
 </div></div>
 </body></html>
 """
 
 PASS_PROMPT_HTML = """
 <!doctype html><html lang="nl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Pakket beveiligd – Olde Hanter</title>{{ head_icon|safe }}<style>{{ base_css }}</style></head><body>
+<title>Pakket beveiligd – DownloadLink.nl</title>{{ head_icon|safe }}<style>{{ base_css }}</style></head><body>
 {{ bg|safe }}
 <div class="wrap"><div class="card" style="max-width:560px;margin:6vh auto">
   <h1>Beveiligd pakket</h1>
@@ -387,14 +377,14 @@ PASS_PROMPT_HTML = """
            required autocomplete="new-password" autocapitalize="off" spellcheck="false">
     <button class="btn" style="margin-top:1rem">Ontgrendel</button>
   </form>
-  <p class="footer">Olde Hanter Bouwconstructies • Bestandentransfer</p>
+  <p class="footer">DownloadLink.nl • Bestandentransfer</p>
 </div></div>
 </body></html>
 """
 
 INDEX_HTML = """
 <!doctype html><html lang="nl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Bestanden delen met Olde Hanter</title>{{ head_icon|safe }}
+<title>Bestanden delen met DownloadLink.nl</title>{{ head_icon|safe }}
 <style>
 {{ base_css }}
 .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
@@ -407,7 +397,7 @@ h1{margin:.25rem 0 1rem;color:var(--brand);font-size:2.1rem}
 
 <div class="wrap">
   <div class="topbar">
-    <h1>Bestanden delen met Olde Hanter</h1>
+    <h1>Bestanden delen met DownloadLink</h1>
     <div class="logout">Ingelogd als {{ user }} • <a href="{{ url_for('logout') }}">Uitloggen</a></div>
   </div>
 
@@ -467,7 +457,7 @@ h1{margin:.25rem 0 1rem;color:var(--brand);font-size:2.1rem}
 
   <div id="result" style="margin-top:1rem"></div>
 
-  <p class="footer">Olde Hanter Bouwconstructies • Bestandentransfer</p>
+  <p class="footer">DownloadLink.nl • Bestandentransfer</p>
 </div>
 
 <script>
@@ -741,7 +731,7 @@ let expiryDays = edSel.value;
 
 PACKAGE_HTML = """
 <!doctype html><html lang="nl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Download – Olde Hanter</title>{{ head_icon|safe }}
+<title>Download – downloadlink.nl</title>{{ head_icon|safe }}
 <style>
 {{ base_css }}
 h1{margin:.2rem 0 1rem;color:var(--brand)}
@@ -807,7 +797,7 @@ h1{margin:.2rem 0 1rem;color:var(--brand)}
     <a class="btn secondary" href="{{ url_for('contact') }}">Eigen transfer-oplossing aanvragen</a>
   </div>
 
-  <p class="footer">Olde Hanter Bouwconstructies • Bestandentransfer</p>
+  <p class="footer">DownloadLink.nl • Bestandentransfer</p>
 </div>
 
 <script>
@@ -1106,7 +1096,7 @@ CONTACT_DONE_HTML = """
   Je omgeving wordt doorgaans binnen <strong>1–2 werkdagen</strong> actief.
   Na livegang ontvang je een bevestigingsmail met alle gegevens.
 </p>
-<p class="footer">Olde Hanter Bouwconstructies • Bestandentransfer</p></div></div>
+<p class="footer">DownloadLink.nl • Bestandentransfer</p></div></div>
 </body></html>
 """
 
@@ -1118,14 +1108,14 @@ CONTACT_MAIL_FALLBACK_HTML = """
   <h1>Aanvraag gereed</h1>
   <p>SMTP staat niet ingesteld of gaf een fout. Klik op de knop hieronder om de e-mail te openen in je mailprogramma.</p>
   <a class="btn" href="{{ mailto_link }}">Open e-mail</a>
-  <p class="footer">Olde Hanter Bouwconstructies • Bestandentransfer</p>
+  <p class="footer">DownloadLink.nl • Bestandentransfer</p>
 </div></div>
 </body></html>
 """
 
 BILLING_HTML = """
 <!doctype html><html lang="nl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Beheer abonnement – Olde Hanter</title>{{ head_icon|safe }}<style>{{ base_css }}</style></head><body>
+<title>Beheer abonnement – DownloadLink.nl</title>{{ head_icon|safe }}<style>{{ base_css }}</style></head><body>
 {{ bg|safe }}
 <div class="wrap">
   <div class="topbar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
@@ -1158,7 +1148,7 @@ BILLING_HTML = """
     {% endif %}
   </div>
 
-  <p class="footer">Olde Hanter Bouwconstructies • Bestandentransfer</p>
+  <p class="footer">DownloadLink.nl • Bestandentransfer</p>
 </div>
 
 {% if sub %}
