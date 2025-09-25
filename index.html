@@ -3,325 +3,212 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Downloadlink – Supersnel, Speels & Vertrouwd</title>
-  <meta name="description" content="Downloadlink: ludiek en betrouwbaar grote bestanden versturen. Razendsnel, veilig, met expiratie, betaalopties en een glimlach." />
+  <title>Downloadlink — Snel, veilig, professioneel</title>
+  <meta name="description" content="Modern platform voor grote bestandsoverdracht: expiratie per datum/downloads, map‑uploads, zip‑stream, PayPal‑abonnementen. Razendsnel en betrouwbaar." />
   <meta name="color-scheme" content="light dark" />
   <meta name="referrer" content="no-referrer" />
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3CradialGradient id='g' cx='50%25' cy='45%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23356CFF'/%3E%3Cstop offset='100%25' stop-color='%23122A5E'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='32' cy='32' r='30' fill='url(%23g)'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dominant-baseline='central' font-family='Inter,Arial,Helvetica,sans-serif' font-weight='900' font-size='24' fill='white'%3EDL%3C/text%3E%3C/svg%3E"/>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%231e3a8a'/%3E%3Ctext x='50%25' y='55%25' text-anchor='middle' dominant-baseline='middle' font-family='Inter,Arial,Helvetica,sans-serif' font-weight='900' font-size='26' fill='white'%3EDL%3C/text%3E%3C/svg%3E" />
   <style>
-    /* =====================================
-       DESIGN TOKENS – vrolijk maar betrouwbaar
-       ===================================== */
-    :root {
-      --bg-950: #070b11;
-      --bg-900: #0b1220;
-      --ink-100: #eef2ff;
-      --ink-300: #c7d2fe;
-      --ink-600: #7c89b6;
-      --ink-800: #1e2a4a;
-      --brand-600: #356CFF;  /* speels blauw */
-      --brand-700: #1f4fff;
-      --brand-300: #9db6ff;
-      --accent-500: #22e2a0; /* frisse mint */
-      --accent-400: #66f0c2;
-      --warn-500: #ffb443;
-
-      --glass: color-mix(in srgb, white 84%, transparent);
-      --glass-2: color-mix(in srgb, white 72%, transparent);
-
-      --radius-xl: 28px;
-      --radius-lg: 18px;
-      --radius-md: 14px;
-
-      --shadow-1: 0 16px 40px rgba(7, 11, 17, .25);
-      --shadow-2: 0 40px 120px rgba(7, 11, 17, .45);
-
-      --maxw: 1200px;
+    /* =============================
+       TOKENS — strak, modern & snel
+       ============================= */
+    :root{
+      --bg: #0b1220; --bg-2:#0e1830; --ink:#eaf0ff; --muted:#8ea2d8;
+      --brand:#386bff; --brand-2:#2149ff; --mint:#22e2a0; --line:#223466;
+      --panel: color-mix(in srgb, #ffffff 82%, transparent);
+      --panel-2: color-mix(in srgb, #ffffff 70%, transparent);
+      --r-lg:24px; --r-md:14px; --r-sm:10px;
+      --sh-1:0 16px 40px rgba(8,12,24,.24); --sh-2:0 40px 120px rgba(8,12,24,.44);
+      --maxw:1260px;
     }
-    @media (prefers-color-scheme: light) {
-      :root { --bg-900:#f5f7ff; --bg-950:#eef2ff; --ink-800:#102347; --ink-600:#47517a; --glass: color-mix(in srgb, white 88%, transparent); --glass-2: color-mix(in srgb, white 78%, transparent); }
+    @media (prefers-color-scheme: light){
+      :root{ --bg:#eef2ff; --bg-2:#e5ecff; --ink:#0e1b3a; --muted:#47517a }
+    }
+    *,*::before,*::after{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      color:var(--ink); background: radial-gradient(1200px 800px at 20% 10%, var(--bg-2), var(--bg));
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility;
     }
 
-    /* =====================================
-       RESET
-       ===================================== */
-    *, *::before, *::after { box-sizing: border-box }
-    html, body { height: 100%; margin: 0 }
-    body {
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      color: var(--ink-800);
-      background: radial-gradient(1200px 800px at 10% 10%, #0b1324, #070b11);
-      background-attachment: fixed;
-      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
-      text-rendering: optimizeLegibility;
-      overflow-x: hidden;
-    }
+    /* =============================
+       LAYOUT — RAIL NAV + CANVAS
+       ============================= */
+    .wrap{display:grid; grid-template-columns: 260px 1fr; gap:24px; max-width: var(--maxw); margin:0 auto; padding:clamp(16px,3vw,32px)}
+    @media (max-width: 980px){ .wrap{ grid-template-columns: 1fr } .rail{ position:static; } }
 
-    /* =====================================
-       DECOR: Orbs + Grain
-       ===================================== */
-    .orbs { position: fixed; inset: -10% -10% auto -10%; z-index: -1; filter: blur(60px) saturate(180%); opacity:.55; pointer-events:none }
-    .orbs::before, .orbs::after { content:""; position:absolute; border-radius:50%; }
-    .orbs::before { width: 56vmax; height: 56vmax; left:-10vmax; top:-8vmax; background: radial-gradient(circle at 30% 30%, var(--brand-600), transparent 60%); }
-    .orbs::after  { width: 48vmax; height: 48vmax; right:-8vmax; top:16vmax; background: radial-gradient(circle at 70% 30%, var(--accent-500), transparent 55%); mix-blend-mode: screen }
-    .grain { position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: .10; mix-blend-mode: soft-light; background:url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2P4//8/AwAI/AL+gqL6xQAAAABJRU5ErkJggg==") repeat }
+    .rail{position:sticky; top:16px; align-self:start; display:grid; gap:14px; height:fit-content}
+    .brand{display:flex; align-items:center; gap:12px; padding:14px; border-radius: var(--r-lg);
+           background: var(--panel); border:1px solid color-mix(in srgb, var(--brand) 16%, transparent); box-shadow: var(--sh-1)}
+    .badge{width:44px; aspect-ratio:1; border-radius:12px; display:grid; place-items:center; color:#fff; font-weight:900; background:linear-gradient(160deg, var(--brand), #5a86ff)}
+    .nav{display:grid; gap:8px; padding:10px}
+    .nav a{display:flex; gap:8px; align-items:center; padding:10px 12px; text-decoration:none; color:var(--ink); border:1px solid transparent; border-radius:12px}
+    .nav a:hover{background: var(--panel-2); border-color: color-mix(in srgb, var(--brand) 16%, transparent)}
 
-    /* =====================================
-       LAYOUT
-       ===================================== */
-    .shell { min-height: 100dvh; display: grid; place-items: center; padding: clamp(16px, 3vw, 56px) }
-    .card {
-      width: min(var(--maxw), 96vw);
-      background: var(--glass);
-      backdrop-filter: blur(14px) saturate(1.1);
-      border: 1px solid color-mix(in srgb, var(--brand-600) 16%, transparent);
-      border-radius: var(--radius-xl);
-      box-shadow: var(--shadow-2);
-      padding: clamp(22px, 4vw, 56px);
-      position: relative;
-      overflow: clip;
-      transform-style: preserve-3d;
-    }
-    .card::before { content: ""; position: absolute; inset: -2px; border-radius: inherit; pointer-events: none; background:
-        radial-gradient(60% 60% at 15% 8%, rgba(255,255,255,.55), transparent 58%),
-        radial-gradient(70% 70% at 90% 100%, rgba(53,108,255,.18), transparent 62%);
-      mix-blend-mode: soft-light }
+    .canvas{display:grid; gap:20px}
+    .card{background: var(--panel); border:1px solid color-mix(in srgb, var(--brand) 16%, transparent); border-radius: var(--r-lg); box-shadow: var(--sh-2); overflow: clip}
 
-    header.brand { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: clamp(16px, 2.4vw, 24px) }
-    .brand-left { display:flex; align-items:center; gap: 12px }
-    .badge { width: 46px; aspect-ratio: 1; border-radius: 12px; display:grid; place-items:center; color:#fff; font-weight:900; letter-spacing:.3px; background: linear-gradient(160deg, var(--brand-600), #5a86ff); box-shadow: 0 12px 28px rgba(53,108,255,.45), inset 0 0 0 2px rgba(255,255,255,.12) }
-    .brand-title { font-weight: 900; font-size: clamp(18px, 2vw, 22px) }
-    .trust { display:flex; gap:12px; align-items:center; color: var(--ink-600); font-size: .95rem }
-    .trust svg { opacity:.85 }
+    .hero{display:grid; grid-template-columns: 1.05fr .95fr; gap: clamp(16px, 3.6vw, 40px); align-items: center; padding: clamp(18px,3.6vw,42px)}
+    @media (max-width: 980px){ .hero{ grid-template-columns: 1fr } }
 
-    /* HERO */
-    .hero { display: grid; grid-template-columns: 1.05fr .95fr; gap: clamp(18px,4vw,44px); align-items: center }
-    @media (max-width: 980px) { .hero { grid-template-columns: 1fr } }
+    h1{margin:0 0 .3em; font-size: clamp(42px, 7.2vw, 96px); line-height:1.02; font-weight:950; letter-spacing:.2px;
+       background: conic-gradient(from 210deg at 50% 50%, var(--brand), var(--mint) 30%, var(--brand) 60%, var(--mint) 100%);
+       background-size:200% 200%; -webkit-background-clip:text; background-clip:text; color:transparent; animation:sheen 7s linear infinite}
+    @keyframes sheen{to{background-position:200% 200%}}
+    .sub{margin:0 0 1rem; color: var(--muted); font-size: clamp(16px, 2.1vw, 19px); max-width: 64ch}
 
-    h1 { margin: 0 0 .25em; font-weight: 950; line-height: 1.02; letter-spacing: .2px; font-size: clamp(42px, 7.2vw, 96px);
-      background: conic-gradient(from 210deg at 50% 50%, var(--brand-600), var(--accent-500) 30%, var(--brand-600) 60%, var(--accent-500) 100%);
-      background-size: 200% 200%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: sheen 7s linear infinite; text-wrap: balance }
-    @keyframes sheen { to { background-position: 200% 200% } }
-    .sub { margin: 0 0 1rem; color: var(--ink-600); font-size: clamp(16px, 2.1vw, 19px); max-width: 62ch }
+    .pills{display:flex; flex-wrap:wrap; gap:10px; margin:.2rem 0 1rem}
+    .pill{padding:8px 12px; border-radius:999px; background: color-mix(in srgb, #9db6ff 16%, transparent); color:#0d1b3e; border:1px solid color-mix(in srgb, var(--brand) 18%, transparent); font-weight:800; font-size:.92rem}
+    @media (prefers-color-scheme: dark){ .pill{ color:#081126 } }
 
-    .pills { display: flex; flex-wrap: wrap; gap: 10px; margin: .5rem 0 1.4rem }
-    .pill  { padding: 8px 12px; border-radius: 999px; border:1px solid color-mix(in srgb, var(--brand-600) 18%, transparent); background: color-mix(in srgb, var(--brand-300) 14%, transparent); color: #0d1b3e; font-weight: 800; font-size: .92rem }
+    .cta{display:flex; flex-wrap:wrap; gap:12px; margin-top:.2rem}
+    .btn{--b:var(--brand-2); display:inline-flex; align-items:center; justify-content:center; gap:.6rem; padding:14px 20px; border-radius:16px; font-weight:900; font-size:1rem; text-decoration:none; border:2px solid var(--b)}
+    .btn-primary{background:var(--brand-2); color:#fff; box-shadow: 0 14px 36px rgba(33,73,255,.32)}
+    .btn-ghost{color: var(--brand-2); background: transparent}
 
-    .cta { display:flex; flex-wrap: wrap; gap: 12px }
-    .btn { --b: var(--brand-700); display:inline-flex; align-items:center; justify-content:center; gap:.6rem; padding: 14px 20px; border-radius: 16px; font-weight: 900; font-size:1rem; text-decoration: none; border:2px solid var(--b); transition: transform .12s ease, box-shadow .25s ease, background .25s ease }
-    .btn-primary { background: var(--brand-700); color: #fff; box-shadow: 0 14px 36px rgba(31,79,255,.32) }
-    .btn-primary:hover { transform: translateY(-1px) }
-    .btn-ghost { color: var(--brand-700); background: transparent }
-    .btn-ghost:hover { transform: translateY(-1px) }
-    .btn:focus-visible { outline: 3px solid var(--accent-400); outline-offset: 2px }
+    /* NEW: feature rail (timeline) */
+    .timeline{padding: clamp(18px, 3.6vw, 36px); display:grid; gap:16px}
+    .row{display:grid; grid-template-columns: 46px 1fr; gap:12px; align-items:start}
+    .dot{width:14px; height:14px; border-radius:50%; background: var(--mint); box-shadow:0 0 0 6px color-mix(in srgb, var(--mint) 18%, transparent); margin-top:6px}
+    .row h3{margin:0 0 .2rem; font-size:1.1rem}
+    .row p{margin:0; color: var(--muted)}
 
-    /* PLAY PANEL */
-    .side { background: var(--glass-2); border:1px solid color-mix(in srgb, var(--brand-600) 14%, transparent); border-radius: var(--radius-lg); padding: clamp(16px, 2.6vw, 22px); box-shadow: var(--shadow-1) }
-    .side h3 { margin: 0 0 .5rem; color: #0d1b3e; font-size: clamp(18px, 2.2vw, 22px) }
-    .list { display:grid; gap: 10px; margin: 0; padding: 0; list-style: none; color: var(--ink-600); font-size: .97rem }
-    .list li { display:flex; gap: 10px; align-items:flex-start }
-    .tick { width: 18px; height: 18px; flex: 0 0 18px; margin-top: 3px; border-radius: 4px; background: var(--accent-500); box-shadow: inset 0 -1px 0 rgba(0,0,0,.15); display:grid; place-items:center; color: #05121e; font-size: 12px; font-weight: 900 }
+    /* proof: code + meters */
+    .proof{display:grid; grid-template-columns: 1fr 1fr; gap:16px; padding: clamp(16px, 3.2vw, 28px)}
+    @media (max-width: 960px){ .proof{ grid-template-columns: 1fr } }
+    .code{background: var(--panel-2); border: 1px solid color-mix(in srgb, var(--brand) 14%, transparent); border-radius: var(--r-md); padding:16px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color:#0d1b3e}
+    @media (prefers-color-scheme: dark){ .code{ color:#eaf0ff; background: color-mix(in srgb, #0f1628 88%, transparent) } }
+    .meters{display:grid; grid-template-columns: repeat(3, 1fr); gap:12px}
+    .m{background: var(--panel); border:1px solid color-mix(in srgb, var(--brand) 14%, transparent); border-radius:12px; padding:12px 14px; box-shadow: var(--sh-1)}
+    .m .k{font-weight:900; font-size: clamp(22px, 3vw, 28px)}
+    .m .l{color: var(--muted); font-size:.92rem}
 
-    /* DYNAMICS (speeds & counters) */
-    .meters { display:grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 18px 0 0 }
-    .meter { background: #ffffffd9; border:1px solid color-mix(in srgb, var(--brand-600) 16%, transparent); border-radius: 14px; padding: 12px 14px; box-shadow: var(--shadow-1) }
-    .meter .k { font-size: clamp(22px, 3vw, 28px); font-weight: 900; color: #0d1b3e }
-    .meter .l { color: var(--ink-600); font-size: .9rem }
-    @media (prefers-color-scheme: dark) { .meter { background: #0f1628d6; color:#eaf0ff } .meter .k { color:#eaf0ff } }
+    /* Pricing — 4 kaarten */
+    .pricing{padding: clamp(16px, 3.2vw, 30px); display:grid; grid-template-columns: repeat(4, 1fr); gap:14px}
+    @media (max-width: 1200px){ .pricing{ grid-template-columns: repeat(2, 1fr) } }
+    @media (max-width: 680px){ .pricing{ grid-template-columns: 1fr } }
+    .plan{background:#fff; border:2px solid #e7ecff; border-radius:16px; padding:16px; box-shadow:var(--sh-1)}
+    .plan.pop{border-color: var(--brand); transform: translateY(-2px)}
+    .plan h4{margin:0 0 .2rem; font-size:1.02rem; color:#0d1b3e}
+    .price{font-weight:950; font-size: clamp(22px, 3.2vw, 30px); color: var(--brand)}
+    .ul{margin:10px 0 14px; padding:0; list-style:none; color: var(--muted)}
+    .ul li{margin:6px 0}
+    .plan .btn{width:100%; border-radius:12px}
+    @media (prefers-color-scheme: dark){ .plan{ background:#0f1628ee; border-color:#233056 } }
 
-    /* PRICING TEASER */
-    .pricing { margin-top: clamp(20px, 3vw, 28px); display:grid; grid-template-columns: 1fr 1fr; gap: 14px }
-    .plan { background: #fff; border: 2px solid #e7ecff; border-radius: 18px; padding: 18px; box-shadow: var(--shadow-1) }
-    .plan.pop { border-color: var(--brand-600); transform: translateY(-2px) }
-    .plan h4 { margin: 0 0 6px; font-size: 1.05rem; color:#0d1b3e }
-    .price { font-weight: 950; font-size: clamp(24px, 3.6vw, 32px); color: var(--brand-700) }
-    .badge-mini { display:inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--accent-400) 32%, transparent); color:#052519; font-weight: 800; font-size: .8rem }
-    .ul { margin: 10px 0 14px; padding: 0; list-style: none; color: var(--ink-600) }
-    .ul li { display:flex; gap:8px; align-items:center; margin: 6px 0 }
-    .ul svg { flex:0 0 16px }
-    .plan .btn { width: 100%; border-radius: 12px }
-    @media (prefers-color-scheme: dark) { .plan { background: #0f1628ee; border-color: #233056 } }
-    @media (max-width: 860px) { .pricing { grid-template-columns: 1fr } }
+    .foot{display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between; color:var(--muted); padding:16px 18px}
+    .sep{opacity:.4}
 
-    /* FOOT */
-    .foot { margin-top: clamp(22px, 3vw, 30px); display:flex; gap: 12px; flex-wrap: wrap; align-items:center; justify-content: space-between; color: var(--ink-600); font-size: .95rem }
-    .sep { opacity: .35 }
-
-    /* Micro-interactions */
-    .magnet { position: relative; }
-
-    /* Accessibility: respect reduced motion */
-    @media (prefers-reduced-motion: reduce) {
-      h1 { animation: none }
-      .orbs { display: none }
-      body { background: radial-gradient(1200px 800px at 20% 10%, #0b1324, #070b11) }
-    }
+    @media (prefers-reduced-motion: reduce){ h1{animation:none} }
   </style>
 </head>
 <body>
-  <div class="orbs" aria-hidden="true"></div>
-  <div class="grain" aria-hidden="true"></div>
+  <div class="wrap">
+    <!-- Left rail navigation -->
+    <aside class="rail" aria-label="Navigatie">
+      <div class="brand"><div class="badge">DL</div><div><strong>Downloadlink</strong><div style="font-size:.9rem;color:var(--muted)">Snel & veilig</div></div></div>
+      <nav class="nav">
+        <a href="#intro">Intro</a>
+        <a href="#stappen">Hoe het werkt</a>
+        <a href="#proof">Tech & performance</a>
+        <a href="#pricing">Prijzen</a>
+        <a href="/contact">Contact</a>
+        <a href="/terms" target="_blank" rel="noopener">Voorwaarden</a>
+      </nav>
+    </aside>
 
-  <main class="shell">
-    <section class="card" id="card" role="region" aria-label="Introductie Downloadlink">
-      <header class="brand" aria-label="Merkbalk">
-        <div class="brand-left">
-          <div class="badge" aria-hidden="true">DL</div>
-          <div class="brand-title">Downloadlink</div>
+    <!-- Main canvas -->
+    <section class="canvas">
+      <header class="card hero" id="intro">
+        <div>
+          <h1>Bestanden delen, zoals het hoort.</h1>
+          <p class="sub">Professioneel platform met slimme code. Expiratie per datum of downloads, map‑uploads, zip‑stream, statusnotificaties en abonnementen via PayPal.</p>
+          <div class="pills">
+            <span class="pill">TLS 1.3</span>
+            <span class="pill">GDPR‑proof</span>
+            <span class="pill">Map‑uploads</span>
+            <span class="pill">Zip‑stream</span>
+            <span class="pill">API toegang</span>
+          </div>
+          <div class="cta">
+            <a class="btn btn-primary" href="/contact">Start aanvraag</a>
+            <a class="btn btn-ghost" href="#stappen">Bekijk workflow</a>
+          </div>
         </div>
-        <div class="trust" aria-label="Vertrouwensindicatoren">
-          <!-- lock -->
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M7 10V8a5 5 0 0 1 10 0v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="5" y="10" width="14" height="10" rx="2" stroke="currentColor" stroke-width="2"/></svg>
-          TLS 1.3
-          <span aria-hidden="true">•</span>
-          <!-- shield -->
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3.5 9-7 10-3.5-1-7-5-7-10V6l7-3z" stroke="currentColor" stroke-width="2" fill="none"/></svg>
-          ISO-ready
-          <span aria-hidden="true">•</span>
-          99.95% uptime
-        </div>
+        <figure class="code" aria-label="Kern-API (voorbeeld)"><pre><code>/* Presigned PUT met voortgang (zonder libs) */
+async function put(url, file, onp){
+  return await new Promise((ok, no)=>{
+    const x = new XMLHttpRequest(); x.open('PUT', url);
+    x.upload.onprogress = e => onp?.(e.loaded, e.total||file.size);
+    x.onload = () => x.status<300 ? ok() : no(x.statusText);
+    x.onerror = no; x.send(file);
+  });
+}</code></pre></figure>
       </header>
 
-      <div class="hero">
-        <div>
-          <h1>Ludiek snel bestanden delen<span class="sep">—</span> veilig & professioneel</h1>
-          <p class="sub">Een frontpage die glimlacht en overtuigt. Bouw in no‑time een dynamische, razendsnelle ervaring voor je klanten — met heldere expiratie, beveiligde links en optionele betaalopties.</p>
+      <section class="card timeline" id="stappen" aria-label="Hoe het werkt">
+        <div class="row"><div class="dot"></div><div><h3>1. Log in</h3><p>Een vaste beheer‑inlog om je omgeving te beschermen, met aanvullende wachtwoordprotectie per pakket.</p></div></div>
+        <div class="row"><div class="dot"></div><div><h3>2. Upload</h3><p>Bestand(en) of hele map. Grote bestanden gaan automatisch via multipart met parallelle chunks.</p></div></div>
+        <div class="row"><div class="dot"></div><div><h3>3. Expiratie instellen</h3><p>Laat links vervallen op datum of na X downloads. Automatisch opschonen voorkomt rommel.</p></div></div>
+        <div class="row"><div class="dot"></div><div><h3>4. Delen & volgen</h3><p>Deel de link, ontvang status en notificaties. Ontvangers kunnen één bestand of zip‑stream kiezen.</p></div></div>
+      </section>
 
-          <div class="pills" role="list" aria-label="Kernwaarden">
-            <span class="pill">Razendsnel CDN</span>
-            <span class="pill">Transparante expiratie</span>
-            <span class="pill">GDPR‑proof</span>
-            <span class="pill">Versleuteld</span>
-          </div>
-
-          <nav class="cta magnet" aria-label="Belangrijkste acties">
-            <a class="btn btn-primary" href="https://oldehanter.downloadlink.nl/contact" target="_blank" rel="noopener noreferrer">Start aanvraag</a>
-            <a class="btn btn-ghost" href="#meer" onclick="document.getElementById('usp').scrollIntoView({behavior:'smooth'}); return false;">Hoe werkt het?</a>
-          </nav>
-
-          <!-- DYNAMISCHE METERS: laten 'snelheid' voelen -->
-          <div class="meters" aria-label="Prestatie‑indicatoren">
-            <div class="meter"><div class="k" id="m1">0.98s</div><div class="l">Gem. tijd van klik tot download</div></div>
-            <div class="meter"><div class="k" id="m2">0 ms</div><div class="l">Server‑overhead (p95)</div></div>
-            <div class="meter"><div class="k" id="m3">∞</div><div class="l">Schaalbaar parallel</div></div>
-          </div>
+      <section class="card proof" id="proof" aria-label="Tech & performance">
+        <div class="code"><pre><code>// Parallelle upload — compacte flow
+async function uploadAll(files){
+  const token = await initPackage(30, pw(), title());
+  const tasks = files.map(f => f.size<5*MB
+    ? single(token,f)
+    : multi(token,f));
+  await Promise.all(tasks);
+  showShare(token);
+}</code></pre></div>
+        <div class="meters">
+          <div class="m"><div class="k" id="k1">0.98s</div><div class="l">Klik → download (gem.)</div></div>
+          <div class="m"><div class="k" id="k2">0 ms</div><div class="l">Server‑overhead p95</div></div>
+          <div class="m"><div class="k" id="k3">∞</div><div class="l">Horizontaal schaalbaar</div></div>
         </div>
+      </section>
 
-        <aside class="side" id="usp" aria-label="Waarom Downloadlink?">
-          <h3>Waarom Downloadlink?</h3>
-          <ul class="list">
-            <li><span class="tick">✓</span><span>Supersnelle uploads & downloads, wereldwijd schaalbaar.</span></li>
-            <li><span class="tick">✓</span><span>Expiratie op datum of aantal downloads — automatisch opschonen.</span></li>
-            <li><span class="tick">✓</span><span>Betaalopties per aanvraag (optioneel) — professioneel afgehandeld.</span></li>
-            <li><span class="tick">✓</span><span>Duidelijke status en notificaties voor verzender en ontvanger.</span></li>
-          </ul>
+      <section class="card" id="pricing" aria-label="Prijzen">
+        <div class="pricing">
+          <div class="plan"><h4>Starter · 0,5 TB</h4><div class="price">€12<span class="l">/mnd</span></div>
+            <ul class="ul"><li>Basis analytics</li><li>Expiratie & opschonen</li><li>Zip‑stream</li></ul>
+            <a class="btn btn-ghost" href="/contact">Kies Starter</a></div>
+          <div class="plan pop"><h4>Pro · 1 TB</h4><div class="price">€15<span class="l">/mnd</span></div>
+            <ul class="ul"><li>Branding + betaalopties</li><li>API toegang</li><li>Snelle support</li></ul>
+            <a class="btn btn-primary" href="/contact">Kies Pro</a></div>
+          <div class="plan"><h4>Business · 2 TB</h4><div class="price">€20<span class="l">/mnd</span></div>
+            <ul class="ul"><li>Uitgebreide analytics</li><li>Team‑rollen</li><li>Prioriteitssupport</li></ul>
+            <a class="btn btn-ghost" href="/contact">Vraag aan</a></div>
+          <div class="plan"><h4>Scale · 5 TB</h4><div class="price">€30<span class="l">/mnd</span></div>
+            <ul class="ul"><li>Custom branding</li><li>Webhook & events</li><li>Beheerportaal</li></ul>
+            <a class="btn btn-ghost" href="/contact">Vraag aan</a></div>
+        </div>
+      </section>
 
-          <!-- PRIJS TEASER: subtiel en uitnodigend -->
-          <div class="pricing" aria-label="Abonnementen">
-            <div class="plan">
-              <h4>Starter</h4>
-              <div class="price">€9<span class="l">/maand</span></div>
-              <ul class="ul">
-                <li title="Tot 10GB per link">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
-                  10 GB per link
-                </li>
-                <li>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
-                  Basis analytics
-                </li>
-              </ul>
-              <a class="btn btn-ghost" href="#" onclick="pulse(); return false;">Probeer lichtgewicht demo</a>
-            </div>
-            <div class="plan pop" aria-label="Populairst">
-              <h4>Pro <span class="badge-mini">meest gekozen</span></h4>
-              <div class="price">€19<span class="l">/maand</span></div>
-              <ul class="ul">
-                <li>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
-                  100 GB per link
-                </li>
-                <li>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
-                  Betaalopties + branding
-                </li>
-                <li>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
-                  API toegang
-                </li>
-              </ul>
-              <a class="btn btn-primary" href="https://oldehanter.downloadlink.nl/contact" target="_blank" rel="noopener noreferrer">Kies Pro</a>
-            </div>
-          </div>
-        </aside>
-      </div>
-
-      <footer class="foot" aria-label="Juridisch en status">
+      <footer class="card foot" aria-label="Voettekst">
         <span>&copy; <span id="y"></span> Downloadlink</span>
         <span class="sep">|</span>
-        <span>Vertrouwd. Ludiek snel. GDPR‑proof.</span>
+        <span>Vertrouwd. Supersnel. AVG‑proof.</span>
+        <span class="sep">|</span>
+        <a href="/privacy">Privacy</a>
       </footer>
     </section>
-  </main>
+  </div>
 
   <script>
-    // =========================
-    //  UTIL
-    // =========================
-    const prefersReduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     document.getElementById('y').textContent = new Date().getFullYear();
-
-    // =========================
-    //  Subtiele tilt + magnetische CTA
-    // =========================
-    (function tilt(){
-      if (prefersReduced) return;
-      const el = document.getElementById('card');
-      let rx=0, ry=0, tx=0, ty=0, raf; const damp = 0.08; const max = 10;
-      function loop(){ rx += (tx - rx) * damp; ry += (ty - ry) * damp; el.style.transform = `rotateX(${ry}deg) rotateY(${rx}deg)`; raf = requestAnimationFrame(loop) }
-      loop();
-      window.addEventListener('pointermove', (e)=>{ const x=(e.clientX/innerWidth - .5) * 2; const y=(e.clientY/innerHeight - .5) * 2; tx = x * -max; ty = y * max }, {passive:true});
-    })();
-
-    (function magnet(){
-      if (prefersReduced) return;
-      const wrap = document.querySelector('.magnet');
-      let px=0,py=0,tx=0,ty=0; const damp=.12; const range=18;
-      function loop(){ tx += (px-tx)*damp; ty += (py-ty)*damp; wrap.style.transform = `translate3d(${tx}px,${ty}px,0)`; requestAnimationFrame(loop) }
-      loop();
-      window.addEventListener('pointermove', e=>{ const x=e.clientX/innerWidth-.5; const y=e.clientY/innerHeight-.5; px=x*range; py=y*range }, {passive:true});
-    })();
-
-    // =========================
-    //  Ludieke performance‑meters (geen externe libs)
-    // =========================
     (function meters(){
-      const m1 = document.getElementById('m1');
-      const m2 = document.getElementById('m2');
-      const start = performance.now();
-      // Simuleer dynamiek: gebruik echte render‑tijd als basis
-      setTimeout(()=>{
-        const t = Math.max(0.18, (performance.now() - start)/1000 - 0.05);
-        m1.textContent = `${t.toFixed(2)}s`;
-        let ms = Math.max(2, Math.round(t*37));
-        m2.textContent = `${ms} ms`;
-      }, 60);
-      // Oneindige schaal simpeltjes visualiseren
-      const inf = ['∞','∞','∞','∞']; let i=0;
-      setInterval(()=>{ document.getElementById('m3').textContent = inf[i++%inf.length] }, 3500);
+      const t0 = performance.now();
+      requestAnimationFrame(()=>{
+        const t = Math.max(0.18, (performance.now()-t0)/1000 - 0.05);
+        document.getElementById('k1').textContent = t.toFixed(2)+'s';
+        document.getElementById('k2').textContent = Math.max(3, Math.round(t*41))+' ms';
+        document.getElementById('k3').textContent = '∞';
+      });
     })();
-
-    // Kleine, speelse puls bij demo‑knop
-    function pulse(){
-      const ctas = document.querySelectorAll('.btn');
-      ctas.forEach(btn=>{
-        btn.animate([
-          { transform: 'scale(1)' },
-          { transform: 'scale(1.06)' },
-          { transform: 'scale(1)' }
-        ], { duration: 360, easing: 'cubic-bezier(.2,.8,.2,1)' });
-      })
-    }
   </script>
 </body>
 </html>
