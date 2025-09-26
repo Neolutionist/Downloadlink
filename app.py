@@ -1395,6 +1395,17 @@ BILLING_HTML = """
 .bar{height:14px;background:#e5ecf6;border:1px solid #dbe5f4;border-radius:999px;overflow:hidden}
 .bar > i{display:block;height:100%;width:{{ pct }}%;background:linear-gradient(90deg,#0f4c98,#1e90ff)}
 .tenant-tag{display:inline-block;padding:.15rem .45rem;border:1px solid #d1d5db;border-radius:999px;background:#fff}
+.table{width:100%;border-collapse:collapse;margin-top:.6rem}
+.table th,.table td{padding:.55rem .7rem;border-bottom:1px solid #e5e7eb;text-align:left}
+.table td.actions{white-space:nowrap}
+@media (max-width: 680px){
+  .table thead{display:none}
+  .table, .table tbody, .table tr, .table td{display:block;width:100%}
+  .table tr{margin-bottom:.6rem;background:rgba(255,255,255,.55);border:1px solid #e5e7eb;border-radius:10px;padding:.4rem .6rem}
+  .table td{border:0;padding:.25rem 0}
+  .table td[data-label]:before{content:attr(data-label) ": ";font-weight:600;color:#334155}
+  .table td.actions{white-space:normal}
+}
 </style></head><body>
 {{ bg|safe }}
 <div class="wrap">
@@ -1425,7 +1436,7 @@ BILLING_HTML = """
     </div>
   </div>
 
-  <div class="card">
+  <div class="card" style="margin-bottom:1rem">
     {% if sub %}
       <div class="small" style="margin-bottom:.8rem">
         <div><strong>Subscription ID:</strong> <code id="subid">{{ sub['subscription_id'] }}</code></div>
@@ -1450,19 +1461,56 @@ BILLING_HTML = """
     {% endif %}
   </div>
 
+  <!-- === NIEUW: Bestandenoverzicht === -->
+  <div class="card">
+    <h3 style="margin:.1rem 0;color:var(--brand)">Bestanden</h3>
+    {% if files and files|length > 0 %}
+      <table class="table" id="filesTable">
+        <thead>
+          <tr>
+            <th>Bestand</th>
+            <th>Pakket</th>
+            <th>Verloopt</th>
+            <th style="text-align:right">Grootte</th>
+            <th style="width:1%"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in files %}
+          <tr data-item-id="{{ f.item_id }}" data-token="{{ f.token }}">
+            <td data-label="Bestand">{{ f.name }}</td>
+            <td data-label="Pakket">{{ f.title }}</td>
+            <td data-label="Verloopt"><span class="expires">{{ f.expires_h }}</span></td>
+            <td data-label="Grootte" style="text-align:right">{{ f.size_h }}</td>
+            <td class="actions" data-label="">
+              <button class="btn small danger" data-action="delete">Verwijderen</button>
+              <button class="btn small secondary" data-action="extend">+30 dagen</button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="small" style="color:#475569;margin-top:.5rem">Let op: <em>+30 dagen</em> verlengt de verlooptijd van het <strong>hele pakket</strong> waar dit bestand in zit.</p>
+    {% else %}
+      <p class="small">Nog geen bestanden gevonden.</p>
+    {% endif %}
+  </div>
+
   <p class="footer">DownloadLink.nl • Bestandentransfer</p>
 </div>
 
-{% if sub %}
 <script>
+// --- bestaande helpers voor API-calls ---
 async function api(url, body){
   const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body||{})});
   const j = await r.json().catch(()=>({}));
   if(!r.ok){ throw new Error(j.error || ('HTTP '+r.status)); }
   return j;
 }
+
 document.getElementById('btnCancel')?.addEventListener('click', async ()=>{
-  const id = document.getElementById('subid').textContent.trim();
+  const id = document.getElementById('subid')?.textContent?.trim();
+  if(!id) return;
   if(!confirm('Weet je zeker dat je wil opzeggen?')) return;
   try{
     await api("{{ url_for('billing_cancel') }}", {subscription_id: id});
@@ -1470,19 +1518,51 @@ document.getElementById('btnCancel')?.addEventListener('click', async ()=>{
     location.reload();
   }catch(e){ alert('Mislukt: ' + e.message); }
 });
+
 document.getElementById('btnChange')?.addEventListener('click', async ()=>{
-  const id = document.getElementById('subid').textContent.trim();
-  const val = document.getElementById('newPlan').value;
+  const id = document.getElementById('subid')?.textContent?.trim();
+  const val = document.getElementById('newPlan')?.value;
+  if(!id || !val) return;
   try{
     await api("{{ url_for('billing_change') }}", {subscription_id: id, new_plan_value: val});
     alert('Plan gewijzigd.');
     location.reload();
   }catch(e){ alert('Mislukt: ' + e.message); }
 });
+
+// --- NIEUW: acties op bestanden ---
+const tbl = document.getElementById('filesTable');
+if (tbl){
+  tbl.addEventListener('click', async (ev)=>{
+    const btn = ev.target.closest('button[data-action]');
+    if (!btn) return;
+    const tr = btn.closest('tr');
+    const itemId = parseInt(tr?.dataset?.itemId || '0', 10);
+    const token  = (tr?.dataset?.token || '').trim();
+    const action = btn.dataset.action;
+
+    try{
+      if (action === 'delete'){
+        if (!confirm('Dit bestand verwijderen?')) return;
+        await api("{{ url_for('billing_item_delete') }}", { item_id: itemId });
+        tr.remove();
+      } else if (action === 'extend'){
+        const res = await api("{{ url_for('billing_package_extend') }}", { token });
+        // update “Verloopt”
+        const iso = res?.new_expires_at || '';
+        const d = (iso ? new Date(iso) : null);
+        const fmt = d ? d.toLocaleString('nl-NL', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : 'bijgewerkt';
+        tr.querySelector('.expires').textContent = fmt;
+      }
+    }catch(e){
+      alert('Actie mislukt: ' + (e?.message || e));
+    }
+  });
+}
 </script>
-{% endif %}
 </body></html>
 """
+
 
 TERMS_HTML = """
 <!doctype html><html lang="nl"><head>
@@ -2403,6 +2483,98 @@ def tenant_usage_bytes(tenant_slug: str) -> int:
     finally:
         c.close()
 
+# ---- Helpers voor beheer-overzicht ----
+def list_items_with_packages(tenant_slug: str):
+    c = db()
+    try:
+        rows = c.execute("""
+            SELECT i.id AS item_id, i.name, i.size_bytes, i.token,
+                   p.title, p.expires_at, p.created_at
+            FROM items i
+            JOIN packages p ON p.token = i.token AND p.tenant_id = i.tenant_id
+            WHERE i.tenant_id = ?
+            ORDER BY p.created_at DESC, i.id DESC
+            LIMIT 500
+        """, (tenant_slug,)).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        c.close()
+
+def extend_package_expiry(token: str, tenant_slug: str, days: int = 30) -> str:
+    """Verleng pakketverval met N dagen; return nieuwe ISO datetime."""
+    c = db()
+    try:
+        row = c.execute(
+            "SELECT expires_at FROM packages WHERE token=? AND tenant_id=?",
+            (token, tenant_slug)
+        ).fetchone()
+        if not row:
+            raise ValueError("pakket_niet_gevonden")
+        cur = datetime.fromisoformat(row["expires_at"])
+        base = max(cur, datetime.now(timezone.utc))
+        new_dt = base + timedelta(days=days)
+        c.execute(
+            "UPDATE packages SET expires_at=? WHERE token=? AND tenant_id=?",
+            (new_dt.isoformat(), token, tenant_slug)
+        )
+        c.commit()
+        return new_dt.isoformat()
+    finally:
+        c.close()
+
+# ---- API: item verwijderen ----
+@app.route("/billing/item/delete", methods=["POST"])
+def billing_item_delete():
+    if not logged_in():
+        abort(401)
+    data = request.get_json(force=True, silent=True) or {}
+    item_id = int(data.get("item_id") or 0)
+    if not item_id:
+        return jsonify(ok=False, error="missing_item_id"), 400
+
+    t = current_tenant()["slug"]
+    c = db()
+    try:
+        it = c.execute(
+            "SELECT s3_key, token FROM items WHERE id=? AND tenant_id=?",
+            (item_id, t)
+        ).fetchone()
+        if not it:
+            return jsonify(ok=False, error="not_found"), 404
+
+        # S3 object verwijderen
+        try:
+            s3.delete_object(Bucket=S3_BUCKET, Key=it["s3_key"])
+        except Exception:
+            log.exception("S3 delete_object failed (item_id=%s)", item_id)
+
+        # DB record verwijderen
+        c.execute("DELETE FROM items WHERE id=? AND tenant_id=?", (item_id, t))
+        c.commit()
+        return jsonify(ok=True)
+    finally:
+        c.close()
+
+# ---- API: pakket +30 dagen ----
+@app.route("/billing/package/extend", methods=["POST"])
+def billing_package_extend():
+    if not logged_in():
+        abort(401)
+    data = request.get_json(force=True, silent=True) or {}
+    token = (data.get("token") or "").strip()
+    if not token:
+        return jsonify(ok=False, error="missing_token"), 400
+
+    t = current_tenant()["slug"]
+    try:
+        new_iso = extend_package_expiry(token, t, days=30)
+        return jsonify(ok=True, new_expires_at=new_iso)
+    except ValueError as e:
+        return jsonify(ok=False, error=str(e)), 404
+    except Exception:
+        log.exception("extend failed")
+        return jsonify(ok=False, error="server_error"), 500
+
 @app.route("/billing")
 def billing_page():
     if not logged_in():
@@ -2426,6 +2598,24 @@ def billing_page():
     finally:
         c.close()
 
+    # Nieuw: bestanden + pakketinfo
+    rows = list_items_with_packages(t)
+    files = []
+    for r in rows:
+        try:
+            exp_dt = datetime.fromisoformat(r["expires_at"])
+        except Exception:
+            exp_dt = datetime.now(timezone.utc)
+        files.append({
+            "item_id":   r["item_id"],
+            "name":      r["name"],
+            "size_h":    human(int(r["size_bytes"] or 0)),
+            "token":     r["token"],
+            "title":     r["title"] or r["token"],
+            "expires_h": exp_dt.strftime("%d-%m-%Y %H:%M"),
+            "expires_iso": r["expires_at"],
+        })
+
     return render_template_string(
         BILLING_HTML,
         used=used,
@@ -2436,10 +2626,10 @@ def billing_page():
         used_h=human(used),
         limit_h=human(limit),
         over=used > limit,
-        # ← deze drie ontbraken
         base_css=BASE_CSS,
         bg=BG_DIV,
         head_icon=HTML_HEAD_ICON,
+        files=files,  # << doorgeven aan template
     )
 
 @app.route("/debug/tenant-usage")
