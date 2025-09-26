@@ -291,7 +291,7 @@ input[type=file]::file-selector-button{
 
 /* === Dynamic FX canvas === */
 .fx-canvas{
-  position:fixed; inset:0; z-index:-3; width:100%; height:100%;
+  position:fixed; inset:0; z-index:-1; width:100%; height:100%;
   display:block; filter:saturate(1.08) contrast(1.04) brightness(1.02);
 }
 
@@ -457,7 +457,7 @@ LOGIN_HTML = """
    <script>
 /* ===== Ultra-dynamic achtergrond (additive “orbs”) – geen libs ===== */
 (function(){
-  const c = document.getElementById('bgfx');
+  const c = document.getElementById('fx');
   if(!c) return;
 
   const mqlReduce = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -1207,18 +1207,6 @@ function updatePreview(){ const s = slugify(company.value); subPreview.textConte
 company?.addEventListener('input', updatePreview); updatePreview();
 
 
-def tenant_usage_bytes(tenant_id: str) -> int:
-    """Som van alle items.size_bytes voor deze tenant."""
-    c = db()
-    try:
-        row = c.execute(
-            "SELECT COALESCE(SUM(size_bytes), 0) AS total FROM items WHERE tenant_id=?",
-            (tenant_id,)
-        ).fetchone()
-        return int(row["total"] if row and row["total"] is not None else 0)
-    finally:
-        c.close()
-
 // ---------- plan map ----------
 const PLAN_MAP = {
   "0.5": "{{ paypal_plan_0_5 }}",
@@ -1798,27 +1786,27 @@ def index():
     if not logged_in(): return redirect(url_for("login"))
     return render_template_string(INDEX_HTML, user=session.get("user"), base_css=BASE_CSS, bg=BG_DIV, head_icon=HTML_HEAD_ICON)
 
-@app.route("/login", methods=["GET","POST"])
+@app.route("/login", methods=["GET", "POST"])
 def login():
-if request.method == "POST":
-    email = (request.form.get("email") or "").lower().strip()
-    pw    = (request.form.get("password") or request.form.get("pw_ui") or "").strip()
+    if request.method == "POST":
+        email = (request.form.get("email") or "").lower().strip()
+        pw    = (request.form.get("password") or request.form.get("pw_ui") or "").strip()
 
-    u = USERS.get(email)
-    if u and pw == (u.get("password") or ""):
-        session["authed"] = True
-        session["user"] = email
-        return redirect(url_for("index"))
+        u = USERS.get(email)
+        if u and pw == (u.get("password") or ""):
+            session["authed"] = True
+            session["user"] = email
+            return redirect(url_for("index"))
 
-    return render_template_string(
-        LOGIN_HTML,
-        error="Onjuiste inloggegevens.",
-        base_css=BASE_CSS, bg=BG_DIV,
-        auth_email=AUTH_EMAIL,  # prefills
-        head_icon=HTML_HEAD_ICON
-    )
+        return render_template_string(
+            LOGIN_HTML,
+            error="Onjuiste inloggegevens.",
+            base_css=BASE_CSS, bg=BG_DIV,
+            auth_email=AUTH_EMAIL,
+            head_icon=HTML_HEAD_ICON
+        )
 
-
+    # GET
     return render_template_string(
         LOGIN_HTML,
         error=None,
@@ -2370,45 +2358,40 @@ def billing_change():
 
 @app.route("/billing")
 def billing_page():
-    if not logged_in(): return redirect(url_for("login"))
-    c = db()
+    if not logged_in():
+        return redirect(url_for("login"))
+
+    user_email = session.get("user") or ""
     t = current_tenant()["slug"]
-    sub = c.execute("""SELECT * FROM subscriptions
-                       WHERE login_email=? AND tenant_id=?
-                       ORDER BY id DESC LIMIT 1""",
-                    (AUTH_EMAIL, t)).fetchone()
-    c.close()
-    user_email = session.get("user")
-t = current_tenant()["slug"]
 
-# Subselect zoals in stap 4 al aangepast
-c = db()
-sub = c.execute(
-    """SELECT * FROM subscriptions
-       WHERE login_email=? AND tenant_id=?
-       ORDER BY id DESC LIMIT 1""",
-    (user_email, t)
-).fetchone()
-c.close()
+    # Laatste subscriptie voor ingelogde gebruiker + tenant
+    c = db()
+    try:
+        sub = c.execute(
+            """SELECT * FROM subscriptions
+               WHERE login_email=? AND tenant_id=?
+               ORDER BY id DESC LIMIT 1""",
+            (user_email, t)
+        ).fetchone()
+    finally:
+        c.close()
 
-# Opslag + limiet
-used = tenant_usage_bytes(t)
-limit = user_limit_bytes(user_email or "")
-pct = 0 if limit <= 0 else min(999, round(used / limit * 100))
-used_h = human(used)
-limit_h = human(limit if limit>0 else 0)
-over = (limit > 0 and used > limit)
+    # Opslagverbruik en limiet
+    used  = tenant_usage_bytes(t)
+    limit = user_limit_bytes(user_email)
+    pct   = 0 if limit <= 0 else min(999, round(used / limit * 100))
+    used_h  = human(used)
+    limit_h = human(limit if limit > 0 else 0)
+    over = (limit > 0 and used > limit)
 
-tenant_label = t  # evt. netter weergeven
-    
-return render_template_string(
-    BILLING_HTML,
-    sub=sub,
-    base_css=BASE_CSS, bg=BG_DIV, head_icon=HTML_HEAD_ICON,
-    user=session.get("user"),
-    tenant_label=tenant_label,
-    used_h=used_h, limit_h=limit_h, pct=pct, over=over
-)
+    return render_template_string(
+        BILLING_HTML,
+        sub=sub,
+        base_css=BASE_CSS, bg=BG_DIV, head_icon=HTML_HEAD_ICON,
+        user=user_email,
+        tenant_label=t,
+        used_h=used_h, limit_h=limit_h, pct=pct, over=over
+    )
 
 # -------------- PayPal Webhook --------------
 def paypal_verify_webhook_sig(headers, body_text: str) -> bool:
