@@ -267,6 +267,22 @@ input[type=file]::file-selector-button{
 }
 @media (max-width: 680px){ .cols-2{ grid-template-columns: 1fr !important; } }
 .cta{display:flex;justify-content:center;margin-top:1rem}
+
+/* === Dynamic FX canvas === */
+.fx-canvas{
+  position:fixed; inset:0; z-index:-3; width:100%; height:100%;
+  display:block; filter:saturate(1.08) contrast(1.04) brightness(1.02);
+}
+
+/* Extra leven in de bestaande .bg via subtiele scale/shift */
+@media (prefers-reduced-motion:no-preference){
+  .bg{animation:bgFloat 36s ease-in-out infinite}
+  @keyframes bgFloat{
+    0%{transform:translate3d(0,0,0) scale(1)}
+    50%{transform:translate3d(0,-1.2%,0) scale(1.02)}
+    100%{transform:translate3d(0,0,0) scale(1)}
+  }
+}
 """
 
 # --- Favicon (SVG) ---
@@ -290,7 +306,11 @@ def favicon_ico():
     return redirect(url_for("favicon_svg"), code=302)
     
 # -------------- Templates --------------
-BG_DIV = '<div class="bg" aria-hidden="true"></div>'
+BG_DIV = '''
+<canvas id="fx" class="fx-canvas" aria-hidden="true"></canvas>
+<div class="bg" aria-hidden="true"></div>
+'''
+
 HTML_HEAD_ICON = f"""
 <link rel="icon" href="{FAVICON_DATA_URL}" type="image/svg+xml"/>
 <link rel="alternate icon" href="{{{{ url_for('favicon_svg') }}}}" type="image/svg+xml"/>
