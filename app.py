@@ -225,7 +225,6 @@ def migrate_add_indexes():
 
 # Voer uit bij start, na de rest van je migraties
 migrate_add_indexes()
-SS
 
 # -------------- CSS --------------
 BASE_CSS = """
