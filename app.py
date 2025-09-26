@@ -2401,7 +2401,7 @@ def tenant_usage_bytes(tenant_slug: str) -> int:
 @app.route("/billing")
 def billing_page():
     if not logged_in():
-        return redirect(url_for("login_page"))
+        return redirect(url_for("login"))
 
     t = current_tenant()["slug"]
     user_email = (session.get("user") or "").lower().strip()
@@ -2427,7 +2427,10 @@ def billing_page():
         limit=limit,
         pct=pct,
         sub=sub,
-        paypal_plan=PAYPAL_PLAN
+        tenant_label = current_tenant()["slug"],
+        used_h = human(used),
+        limit_h = human(limit),
+        over = used > limit,
     )
 
 @app.route("/debug/tenant-usage")
