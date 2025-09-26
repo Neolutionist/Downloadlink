@@ -194,6 +194,39 @@ def migrate_add_tenant_columns():
 init_db()
 migrate_add_tenant_columns()
 
+
+# ──────────────────────────────────────────────────────────────
+# Helpers voor usage & migratie
+# ──────────────────────────────────────────────────────────────
+
+def tenant_usage_bytes(tenant_slug: str) -> int:
+    """Som van alle item-groottes voor deze tenant (persistente DB)."""
+    c = db()
+    try:
+        row = c.execute(
+            "SELECT COALESCE(SUM(size_bytes), 0) AS total FROM items WHERE tenant_id=?",
+            (tenant_slug,)
+        ).fetchone()
+        return int(row["total"] or 0)
+    finally:
+        c.close()
+
+
+def migrate_add_indexes():
+    """Snellere queries bij veel uploads."""
+    conn = db()
+    try:
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_items_tenant   ON items(tenant_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_items_token    ON items(token)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_packages_tenant ON packages(tenant_id)")
+        conn.commit()
+    finally:
+        conn.close()
+
+# Voer uit bij start, na de rest van je migraties
+migrate_add_indexes()
+SS
+
 # -------------- CSS --------------
 BASE_CSS = """
 *,*:before,*:after{box-sizing:border-box}
@@ -2369,12 +2402,15 @@ def tenant_usage_bytes(tenant_slug: str) -> int:
 @app.route("/billing")
 def billing_page():
     if not logged_in():
-        return redirect(url_for("login"))
+        return redirect(url_for("login_page"))
 
-    user_email = session.get("user") or ""
     t = current_tenant()["slug"]
+    user_email = (session.get("user") or "").lower().strip()
 
-    # Laatste subscriptie voor ingelogde gebruiker + tenant
+    used  = tenant_usage_bytes(t)                     # ← uit DB
+    limit = user_limit_bytes(user_email)              # ← uit USERS dict
+    pct   = 0 if limit <= 0 else min(999, round(used / limit * 100))
+
     c = db()
     try:
         sub = c.execute(
@@ -2386,22 +2422,27 @@ def billing_page():
     finally:
         c.close()
 
-    # Opslagverbruik en limiet
-    used  = tenant_usage_bytes(t)
-    limit = user_limit_bytes(user_email)
-    pct   = 0 if limit <= 0 else min(999, round(used / limit * 100))
-    used_h  = human(used)
-    limit_h = human(limit if limit > 0 else 0)
-    over = (limit > 0 and used > limit)
-
     return render_template_string(
         BILLING_HTML,
+        used=used,
+        limit=limit,
+        pct=pct,
         sub=sub,
-        base_css=BASE_CSS, bg=BG_DIV, head_icon=HTML_HEAD_ICON,
-        user=user_email,
-        tenant_label=t,
-        used_h=used_h, limit_h=limit_h, pct=pct, over=over
+        paypal_plan=PAYPAL_PLAN
     )
+
+    @app.route("/debug/tenant-usage")
+def debug_tenant_usage():
+    c = db()
+    try:
+        rows = c.execute("""
+            SELECT tenant_id, COALESCE(SUM(size_bytes),0) AS total
+            FROM items
+            GROUP BY tenant_id
+        """).fetchall()
+        return jsonify({r["tenant_id"]: int(r["total"] or 0) for r in rows})
+    finally:
+        c.close()
 
 # -------------- PayPal Webhook --------------
 def paypal_verify_webhook_sig(headers, body_text: str) -> bool:
