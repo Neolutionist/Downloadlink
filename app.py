@@ -17,7 +17,6 @@ import urllib.request
 from email.message import EmailMessage
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from zipstream_ng import ZipStream 
 
 from flask import (
     Flask, request, redirect, url_for, abort, render_template_string,
