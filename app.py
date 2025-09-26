@@ -298,69 +298,122 @@ HTML_HEAD_ICON = f"""
 """
 
 LOGIN_HTML = """
-<!doctype html><html lang="nl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Inloggen – DownloadLink</title>{{ head_icon|safe }}<style>{{ base_css }}</style></head><body>
-{{ bg|safe }}
-<div class="wrap"><div class="card" style="max-width:460px;margin:auto">
-  <h1 style="color:var(--brand)">Inloggen</h1>
-  {% if error %}<div style="background:#fee2e2;color:#991b1b;padding:.6rem .8rem;border-radius:10px;margin-bottom:1rem">{{ error }}</div>{% endif %}
-<style>
-/* Masker een tekstveld als een wachtwoordveld */
-.input.pw-mask {
-  -webkit-text-security: disc;    /* Chrome/Safari */
-  text-security: disc;            /* sommige browsers */
-}
-</style>
+<!doctype html><html lang="nl">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="color-scheme" content="light dark">
+  <title>Inloggen – DownloadLink</title>
+  {{ head_icon|safe }}
+  <style>{{ base_css }}
+  /* — extra login styling, minimaal & snel — */
+  .login-wrap{display:grid;place-items:center;min-height:100vh;padding:clamp(12px,2vw,20px)}
+  .login-card{
+    width:min(640px,94vw);
+    padding:clamp(18px,3.2vw,28px);
+    background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.86));
+    border:1px solid rgba(255,255,255,.45);
+    border-radius:22px;
+    box-shadow:0 18px 60px rgba(15,23,42,.18);
+    backdrop-filter: blur(14px) saturate(1.05);
+  }
+  .brand{
+    display:flex;align-items:center;gap:.7rem;margin-bottom:.25rem
+  }
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:linear-gradient(90deg,var(--c1),var(--c2))}
+  .title{margin:.1rem 0 .35rem;color:var(--brand);font-size:clamp(1.4rem,3.4vw,1.9rem);line-height:1.15}
+  .sub{color:#475569;margin:0 0 1rem}
+  .actions{display:flex;gap:.6rem;align-items:center;margin-top:1rem;flex-wrap:wrap}
+  .ghost{
+    background:transparent;color:var(--brand);border:1px solid var(--line)
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .login-card{animation:pop .35s ease-out}
+    @keyframes pop{from{opacity:0;transform:translate3d(0,6px,0) scale(.992)} to{opacity:1;transform:none}}
+  }
+  /* mask wachtwoord veld (snelle, JS-vrije mask) */
+  .input.pw-mask{-webkit-text-security:disc; text-security:disc}
+  .meta-row{display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin:.4rem 0 0}
+  .mini-link{font-size:.9rem;color:var(--muted)}
+  </style>
+</head>
+<body>
+  {{ bg|safe }}
 
-<form method="post" autocomplete="off">
-  <!-- honeypots tegen autofill -->
-  <input type="text" name="x" style="display:none">
-  <input type="password" name="y" style="display:none" autocomplete="new-password">
+  <main class="login-wrap">
+    <section class="login-card" role="region" aria-label="Inloggen">
+      <div class="brand">
+        <span class="dot" aria-hidden="true"></span>
+        <strong>DownloadLink</strong>
+      </div>
+      <h1 class="title">Welkom terug</h1>
+      <p class="sub">Log in om je transfers te beheren.</p>
 
-  <label for="email">E-mail</label>
-  <input id="email" class="input" name="email" type="email"
-         value="{{ auth_email }}" autocomplete="username" required>
+      {% if error %}
+        <div style="background:#fee2e2;color:#991b1b;padding:.6rem .8rem;border-radius:10px;margin-bottom:1rem">{{ error }}</div>
+      {% endif %}
 
-  <label for="pw_ui">Wachtwoord</label>
-  <!-- Zichtbaar veld is GEEN password-type -> geen generator/autofill -->
-  <input id="pw_ui"
-         class="input pw-mask"
-         type="text"
-         name="pw_ui"
-         placeholder="Wachtwoord"
-         autocomplete="off"
-         autocapitalize="off"
-         autocorrect="off"
-         spellcheck="false"
-         inputmode="text"
-         data-lpignore="true"
-         data-1p-ignore="true">
+      <form method="post" autocomplete="off" novalidate>
+        <!-- honeypots tegen autofill -->
+        <input type="text" name="x" style="display:none">
+        <input type="password" name="y" style="display:none" autocomplete="new-password">
 
-  <!-- Echt verborgen password-veld voor submit naar server -->
-  <input id="pw_real" type="password" name="password" style="display:none" tabindex="-1" autocomplete="off">
+        <label for="email">E-mail</label>
+        <input id="email" class="input" name="email" type="email"
+               value="{{ auth_email }}" autocomplete="username" required autofocus inputmode="email">
 
-  <button class="btn" type="submit" style="margin-top:1rem;width:100%">Inloggen</button>
-</form>
+        <div class="meta-row">
+          <label for="pw_ui" style="margin:0">Wachtwoord</label>
+          <a class="mini-link" href="{{ url_for('contact') }}">Geen account? Vraag er één aan →</a>
+        </div>
 
-<script>
-(function(){
-  const form   = document.currentScript.previousElementSibling;
-  const pwUI   = document.getElementById('pw_ui');
-  const pwReal = document.getElementById('pw_real');
+        <!-- zichtbaar (text) veld om password-managers te ontmoedigen, wel visueel gemaskeerd -->
+        <input id="pw_ui"
+               class="input pw-mask"
+               type="text"
+               name="pw_ui"
+               placeholder="••••••••"
+               autocomplete="off"
+               autocapitalize="off"
+               autocorrect="off"
+               spellcheck="false"
+               inputmode="text"
+               data-lpignore="true"
+               data-1p-ignore="true">
 
-  // extra defensie
-  setTimeout(()=>{ try{ pwUI.value=''; }catch(e){} }, 0);
+        <!-- verborgen echte password input die met JS wordt gevuld bij submit -->
+        <input id="pw_real" type="password" name="password" style="display:none" tabindex="-1" autocomplete="off">
 
-  form.addEventListener('submit', function(){
-    pwReal.value = pwUI.value || '';
-  }, {passive:true});
-})();
-</script>
+        <div class="actions">
+          <button class="btn" type="submit" style="flex:1">Inloggen</button>
+          <!-- Directe aanvraagknop — geen login nodig -->
+          <a class="btn secondary" href="{{ url_for('contact') }}" rel="nofollow">Account aanvragen</a>
+        </div>
+      </form>
 
-  <p class="footer small">DownloadLink.nl • Bestandentransfer</p>
-</div></div>
-</body></html>
+      <p class="footer small" style="margin-top:1.2rem">Snel. Veilig. Nederlands platform.</p>
+    </section>
+  </main>
+
+  <script>
+  // Minimal JS – geen frameworks, instant execution
+  (function(){
+    const form   = document.currentScript.previousElementSibling.querySelector('form');
+    const pwUI   = document.getElementById('pw_ui');
+    const pwReal = document.getElementById('pw_real');
+
+    // extra defensie tegen auto-invullen
+    setTimeout(()=>{ try{ pwUI.value=''; }catch(e){} }, 0);
+
+    form.addEventListener('submit', function(){
+      pwReal.value = pwUI.value || '';
+    }, {passive:true});
+  })();
+  </script>
+</body>
+</html>
 """
+
 
 PASS_PROMPT_HTML = """
 <!doctype html><html lang="nl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
