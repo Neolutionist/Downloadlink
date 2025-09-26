@@ -355,6 +355,7 @@ LOGIN_HTML = """
   .input.pw-mask{-webkit-text-security:disc; text-security:disc}
   .meta-row{display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin:.4rem 0 0}
   .mini-link{font-size:.9rem;color:var(--muted)}
+  .mini-link{font-size:.9rem;color:var(--muted);display:inline-block;margin-top:.45rem}
   </style>
 </head>
 <body>
@@ -384,7 +385,6 @@ LOGIN_HTML = """
 
         <div class="meta-row">
           <label for="pw_ui" style="margin:0">Wachtwoord</label>
-          <a class="mini-link" href="{{ url_for('contact') }}">Geen account? Vraag er één aan →</a>
         </div>
 
         <!-- zichtbaar (text) veld om password-managers te ontmoedigen, wel visueel gemaskeerd -->
@@ -401,7 +401,10 @@ LOGIN_HTML = """
                data-lpignore="true"
                data-1p-ignore="true">
 
-        <!-- verborgen echte password input die met JS wordt gevuld bij submit -->
+        <!-- link nu ONDER het wachtwoordveld -->
+        <a class="mini-link" href="{{ url_for('contact') }}">Geen account? Vraag er één aan →</a>
+
+        <!-- verborgen echte password input ... -->
         <input id="pw_real" type="password" name="password" style="display:none" tabindex="-1" autocomplete="off">
 
         <div class="actions">
