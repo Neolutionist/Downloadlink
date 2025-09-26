@@ -2431,7 +2431,7 @@ def billing_page():
         paypal_plan=PAYPAL_PLAN
     )
 
-    @app.route("/debug/tenant-usage")
+@app.route("/debug/tenant-usage")
 def debug_tenant_usage():
     c = db()
     try:
@@ -2442,7 +2442,7 @@ def debug_tenant_usage():
         """).fetchall()
         return jsonify({r["tenant_id"]: int(r["total"] or 0) for r in rows})
     finally:
-        c.close()
+        c.close()   # ← 4 spaties inspringen
 
 # -------------- PayPal Webhook --------------
 def paypal_verify_webhook_sig(headers, body_text: str) -> bool:
