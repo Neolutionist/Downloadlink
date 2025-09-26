@@ -17,6 +17,7 @@ import urllib.request
 from email.message import EmailMessage
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zipstream_ng import ZipStream 
 
 from flask import (
     Flask, request, redirect, url_for, abort, render_template_string,
@@ -2132,7 +2133,7 @@ def terms_page():
     )
 # -------------- Contact / Mail --------------
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-PHONE_RE  = re.compile(r"^[0-9+()\\s-]{8,20}$")
+PHONE_RE  = re.compile(r"^[0-9+()\s-]{8,20}$")
 ALLOWED_TB = {0.5, 1.0, 2.0, 5.0}
 PRICE_LABEL = {0.5:"€12/maand", 1.0:"€15/maand", 2.0:"€20/maand", 5.0:"€30/maand"}
 
@@ -2355,6 +2356,19 @@ def billing_change():
     except Exception:
         log.exception("PayPal revise failed")
         return jsonify(ok=False, error="paypal_revise_failed"), 502
+
+
+def tenant_usage_bytes(tenant_slug: str) -> int:
+    """Som van alle item-bytes voor een tenant."""
+    c = db()
+    try:
+        row = c.execute(
+            "SELECT COALESCE(SUM(size_bytes), 0) AS tot FROM items WHERE tenant_id=?",
+            (tenant_slug,)
+        ).fetchone()
+        return int(row["tot"] or 0)
+    finally:
+        c.close()
 
 @app.route("/billing")
 def billing_page():
