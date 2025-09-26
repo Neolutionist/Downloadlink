@@ -90,6 +90,27 @@ PLAN_MAP = {
 }
 REVERSE_PLAN_MAP = {v: k for k, v in PLAN_MAP.items() if v}
 
+# ---- Multi-user + limieten (GB) ----
+# Opzet: e-mail -> {"password": "...", "limit_gb": float}
+USERS: dict[str, dict] = {
+    # Bestaande beheeraccount (limiet 10 GB)
+    (_env("AUTH_EMAIL", "info@downloadlink.nl")).lower(): {
+        "password": _env("AUTH_PASSWORD", "Gr8w0rkm8!"),
+        "limit_gb": 10.0,
+    },
+    # Nieuwe gebruiker conStabiel (limiet 2 GB)
+    "info@constabiel.nl": {
+        "password": "Gr8w0rkm8!",
+        "limit_gb": 2.0,
+    },
+}
+
+def user_limit_bytes(email: str) -> int:
+    u = USERS.get((email or "").lower().strip()) or {}
+    gb = float(u.get("limit_gb", 0.0))
+    return int(gb * 1024 * 1024 * 1024)
+
+
 # ---------------- S3 Client ----------------
 s3 = boto3.client(
     "s3",
@@ -1185,6 +1206,19 @@ const BASE_DOMAIN = "{{ base_host }}";
 function updatePreview(){ const s = slugify(company.value); subPreview.textContent = s ? (s + "." + BASE_DOMAIN) : BASE_DOMAIN; }
 company?.addEventListener('input', updatePreview); updatePreview();
 
+
+def tenant_usage_bytes(tenant_id: str) -> int:
+    """Som van alle items.size_bytes voor deze tenant."""
+    c = db()
+    try:
+        row = c.execute(
+            "SELECT COALESCE(SUM(size_bytes), 0) AS total FROM items WHERE tenant_id=?",
+            (tenant_id,)
+        ).fetchone()
+        return int(row["total"] if row and row["total"] is not None else 0)
+    finally:
+        c.close()
+
 // ---------- plan map ----------
 const PLAN_MAP = {
   "0.5": "{{ paypal_plan_0_5 }}",
@@ -1331,12 +1365,42 @@ CONTACT_MAIL_FALLBACK_HTML = """
 
 BILLING_HTML = """
 <!doctype html><html lang="nl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Beheer abonnement – DownloadLink.nl</title>{{ head_icon|safe }}<style>{{ base_css }}</style></head><body>
+<title>Beheer abonnement – DownloadLink.nl</title>{{ head_icon|safe }}<style>{{ base_css }}
+.stat{display:grid;gap:.35rem}
+.stat h3{margin:.1rem 0;color:var(--brand)}
+.kv{display:grid;grid-template-columns: 1fr auto; gap:.25rem .75rem; align-items:center}
+.kv div.small{color:#475569}
+.bar{height:14px;background:#e5ecf6;border:1px solid #dbe5f4;border-radius:999px;overflow:hidden}
+.bar > i{display:block;height:100%;width:{{ pct }}%;background:linear-gradient(90deg,#0f4c98,#1e90ff)}
+.tenant-tag{display:inline-block;padding:.15rem .45rem;border:1px solid #d1d5db;border-radius:999px;background:#fff}
+</style></head><body>
 {{ bg|safe }}
 <div class="wrap">
   <div class="topbar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
     <h1 style="color:var(--brand)">Beheer abonnement</h1>
     <div>Ingelogd als {{ user }} • <a href="{{ url_for('logout') }}">Uitloggen</a></div>
+  </div>
+
+  <!-- === Opslagstatus per tenant === -->
+  <div class="card" style="margin-bottom:1rem">
+    <div class="stat">
+      <h3>Cloudopslag (S3/B2)</h3>
+      <div class="kv">
+        <div>
+          <span class="tenant-tag">{{ tenant_label }}</span>
+        </div>
+        <div class="small">{{ used_h }} gebruikt van {{ limit_h }} limiet</div>
+      </div>
+      <div class="bar" aria-label="Opslagverbruik"><i style="width:{{ pct }}%"></i></div>
+      <div class="small" style="display:flex;justify-content:space-between">
+        <span>{{ used_h }}</span><span>{{ pct }}%</span><span>{{ limit_h }}</span>
+      </div>
+      {% if over %}
+        <div style="background:#fef3c7;color:#92400e;padding:.5rem .7rem;border-radius:10px;margin-top:.5rem">
+          Let op: je verbruik ligt boven je limiet. Overweeg opschalen of opschonen.
+        </div>
+      {% endif %}
+    </div>
   </div>
 
   <div class="card">
@@ -1397,6 +1461,7 @@ document.getElementById('btnChange')?.addEventListener('click', async ()=>{
 {% endif %}
 </body></html>
 """
+
 TERMS_HTML = """
 <!doctype html><html lang="nl"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -1735,23 +1800,24 @@ def index():
 
 @app.route("/login", methods=["GET","POST"])
 def login():
-    if request.method == "POST":
-        email = (request.form.get("email") or "").lower().strip()
-        # accept either the hidden 'password' or the UI field 'pw_ui'
-        pw    = (request.form.get("password") or request.form.get("pw_ui") or "").strip()
+if request.method == "POST":
+    email = (request.form.get("email") or "").lower().strip()
+    pw    = (request.form.get("password") or request.form.get("pw_ui") or "").strip()
 
-        if email == AUTH_EMAIL and pw == AUTH_PASSWORD:
-            session["authed"] = True
-            session["user"] = AUTH_EMAIL
-            return redirect(url_for("index"))
+    u = USERS.get(email)
+    if u and pw == (u.get("password") or ""):
+        session["authed"] = True
+        session["user"] = email
+        return redirect(url_for("index"))
 
-        return render_template_string(
-            LOGIN_HTML,
-            error="Onjuiste inloggegevens.",
-            base_css=BASE_CSS, bg=BG_DIV,
-            auth_email=AUTH_EMAIL,
-            head_icon=HTML_HEAD_ICON
-        )
+    return render_template_string(
+        LOGIN_HTML,
+        error="Onjuiste inloggegevens.",
+        base_css=BASE_CSS, bg=BG_DIV,
+        auth_email=AUTH_EMAIL,  # prefills
+        head_icon=HTML_HEAD_ICON
+    )
+
 
     return render_template_string(
         LOGIN_HTML,
@@ -2312,9 +2378,37 @@ def billing_page():
                        ORDER BY id DESC LIMIT 1""",
                     (AUTH_EMAIL, t)).fetchone()
     c.close()
-    return render_template_string(
-        BILLING_HTML, sub=sub, base_css=BASE_CSS, bg=BG_DIV, head_icon=HTML_HEAD_ICON, user=session.get("user")
-    )
+    user_email = session.get("user")
+t = current_tenant()["slug"]
+
+# Subselect zoals in stap 4 al aangepast
+c = db()
+sub = c.execute(
+    """SELECT * FROM subscriptions
+       WHERE login_email=? AND tenant_id=?
+       ORDER BY id DESC LIMIT 1""",
+    (user_email, t)
+).fetchone()
+c.close()
+
+# Opslag + limiet
+used = tenant_usage_bytes(t)
+limit = user_limit_bytes(user_email or "")
+pct = 0 if limit <= 0 else min(999, round(used / limit * 100))
+used_h = human(used)
+limit_h = human(limit if limit>0 else 0)
+over = (limit > 0 and used > limit)
+
+tenant_label = t  # evt. netter weergeven
+    
+return render_template_string(
+    BILLING_HTML,
+    sub=sub,
+    base_css=BASE_CSS, bg=BG_DIV, head_icon=HTML_HEAD_ICON,
+    user=session.get("user"),
+    tenant_label=tenant_label,
+    used_h=used_h, limit_h=limit_h, pct=pct, over=over
+)
 
 # -------------- PayPal Webhook --------------
 def paypal_verify_webhook_sig(headers, body_text: str) -> bool:
@@ -2379,7 +2473,7 @@ def paypal_webhook():
                 c = db()
                 c.execute("""INSERT OR REPLACE INTO subscriptions(login_email, plan_value, subscription_id, status, created_at)
                              VALUES(?,?,?,?,?)""",
-                          (AUTH_EMAIL, plan_value or (plan_id or ""), sub_id, status, datetime.now(timezone.utc).isoformat()))
+                          ((session.get("user") or AUTH_EMAIL), plan_value or (plan_id or ""), sub_id, status, datetime.now(timezone.utc).isoformat()))
                 c.commit(); c.close()
             try:
                 plan_label = {"0.5":"0,5 TB","1":"1 TB","2":"2 TB","5":"5 TB"}.get(plan_value, plan_id or "(onbekend plan)")
