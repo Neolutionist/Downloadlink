@@ -103,6 +103,11 @@ USERS: dict[str, dict] = {
         "password": "Gr8w0rkm8!",
         "limit_gb": 2.0,
     },
+    # >>> HIER TOEGEVOEGD <<<
+    "info@oldehanter.nl": {
+        "password": "Hulsmaat",
+        "limit_gb": 10000.0,  # pas aan indien gewenst
+    },
 }
 
 def user_limit_bytes(email: str) -> int:
