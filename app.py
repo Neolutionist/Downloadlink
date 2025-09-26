@@ -422,9 +422,6 @@ LOGIN_HTML = """
                data-lpignore="true"
                data-1p-ignore="true">
 
-        <!-- link nu ONDER het wachtwoordveld -->
-        <a class="mini-link" href="{{ url_for('contact') }}">Geen account? Vraag er één aan →</a>
-
         <!-- verborgen echte password input ... -->
         <input id="pw_real" type="password" name="password" style="display:none" tabindex="-1" autocomplete="off">
 
