@@ -433,87 +433,146 @@ LOGIN_HTML = """
     }, {passive:true});
   })();
   </script>
-    <script>
-  // === Dynamische achtergrond (canvas orbs/particles) ===
-  (function(){
-    const el = document.getElementById('fx');
-    if(!el) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const ctx = el.getContext('2d', { alpha:true });
-    let W=0,H=0, orbs=[], t=0, raf;
+   <script>
+/* ===== Ultra-dynamic achtergrond (additive “orbs”) – geen libs ===== */
+(function(){
+  const c = document.getElementById('bgfx');
+  if(!c) return;
 
-    function resize(){
-      W = el.clientWidth; H = el.clientHeight;
-      el.width = Math.floor(W*dpr); el.height = Math.floor(H*dpr);
-      ctx.setTransform(dpr,0,0,dpr,0,0);
+  const mqlReduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+  if (mqlReduce.matches) { c.style.display = 'none'; return; }
+
+  const ctx = c.getContext('2d', { alpha: true });
+  let w=0, h=0, dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+  function resize(){
+    w = window.innerWidth || 0;
+    h = window.innerHeight || 0;
+    c.width  = Math.max(1, Math.floor(w * dpr));
+    c.height = Math.max(1, Math.floor(h * dpr));
+    c.style.width  = w + 'px';
+    c.style.height = h + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  window.addEventListener('resize', resize, { passive:true });
+  resize();
+
+  // Kleuren (matchen je :root varianten zo goed mogelijk)
+  const PALETTE = [
+    [132,182,255], // --c1
+    [181,156,255], // --c2
+    [ 92,225,185], // --c3
+    [255,224,138], // --c4
+    [255,162,192], // --c5
+  ];
+
+  function rgba(rgb, a){ return 'rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+','+a+')'; }
+  function rand(a,b){ return a + Math.random()*(b-a); }
+
+  // Aantal orbs schaalt met schermoppervlak, met caps voor performance
+  function orbCount(){
+    const area = w*h;
+    return Math.max(16, Math.min(36, Math.floor(area / 38000)));
+  }
+
+  const orbs = [];
+  function makeOrb(){
+    const r = rand(60, Math.min(w,h) * 0.18);
+    return {
+      x: rand(0, w),
+      y: rand(0, h),
+      r,
+      vx: rand(-0.35, 0.35),
+      vy: rand(-0.35, 0.35),
+      c: PALETTE[(Math.random()*PALETTE.length)|0],
+      wob: rand(0.5, 1.4),   // wobble snelheid
+      spin: rand(0.4, 1.2),  // extra flow
+      off: Math.random()*1000
+    };
+  }
+
+  function seedOrbs(n){
+    orbs.length = 0;
+    for(let i=0;i<n;i++) orbs.push(makeOrb());
+  }
+  seedOrbs(orbCount());
+
+  let mouseX = w/2, mouseY = h/2;
+  window.addEventListener('mousemove', e=>{
+    mouseX = e.clientX; mouseY = e.clientY;
+  }, {passive:true});
+
+  let lastT = 0;
+  function tick(ts){
+    if (!w || !h) return;
+    const t = ts || 0;
+    const dt = (t - lastT) || 16;
+    lastT = t;
+
+    // Her-schaal bij layout changes
+    if (Math.abs(c.width/dpr - w) > 2 || Math.abs(c.height/dpr - h) > 2){
+      resize();
     }
-    new ResizeObserver(resize).observe(el); resize();
 
-    const N = 24; // aantal orbs (verhoog voor nóg meer dynamiek)
-    function rand(min,max){ return min + Math.random()*(max-min); }
+    ctx.clearRect(0,0,w,h);
+    ctx.globalCompositeOperation = 'lighter';
 
-    function init(){
-      orbs = Array.from({length:N}, (_,i)=>({
-        r: rand(120, 360),
-        x0: rand(-0.4,1.4)*W,
-        y0: rand(-0.2,1.2)*H,
-        ang: rand(0, Math.PI*2),
-        speed: rand(0.0006, 0.0018)*(i%3?1:1.6),
-        amp: rand(40, 160),
-        alpha: rand(0.08, 0.24)
-      }));
+    const parX = ((mouseX / w) - 0.5) * 8;  // zachte parallax
+    const parY = ((mouseY / h) - 0.5) * 8;
+
+    for (const o of orbs){
+      // sinus/flow field
+      const s = Math.sin((t*0.001*o.wob) + o.off);
+      const c0 = Math.cos((t*0.0012*o.spin) - o.off);
+
+      o.x += o.vx + s*0.6 + parX*0.02;
+      o.y += o.vy + c0*0.6 + parY*0.02;
+
+      // wrap i.p.v. bounce, geeft continuïteit
+      if (o.x < -o.r) o.x = w + o.r;
+      if (o.x >  w+o.r) o.x = -o.r;
+      if (o.y < -o.r) o.y = h + o.r;
+      if (o.y >  h+o.r) o.y = -o.r;
+
+      // Dynamische radius (ademen)
+      const rr = o.r * (1 + 0.06*Math.sin(t*0.001 + o.off));
+
+      const g = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, rr);
+      g.addColorStop(0.00, rgba(o.c, 0.70));
+      g.addColorStop(0.55, rgba(o.c, 0.18));
+      g.addColorStop(1.00, 'rgba(0,0,0,0)');
+
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(o.x, o.y, rr, 0, Math.PI*2);
+      ctx.fill();
     }
-    init();
-    window.addEventListener('resize', init, {passive:true});
 
-    // kleurverloop helper
-    function grad(x,y,r){
-      const g = ctx.createRadialGradient(x,y, r*0.1, x,y, r);
-      g.addColorStop(0, 'rgba(132,182,255,0.55)');
-      g.addColorStop(0.5, 'rgba(181,156,255,0.35)');
-      g.addColorStop(1, 'rgba(92,225,185,0.0)');
-      return g;
-    }
-
-    function tick(now){
-      raf = requestAnimationFrame(tick);
-      t = now || performance.now();
-      ctx.clearRect(0,0,W,H);
-
-      // subtiele noise-overlay voor extra ‘leven’
-      ctx.globalCompositeOperation='source-over';
-
-      for(const o of orbs){
-        const x = o.x0 + Math.cos(o.ang + t*o.speed)*o.amp;
-        const y = o.y0 + Math.sin(o.ang*1.15 + t*o.speed*0.85)*o.amp*0.8;
-        ctx.globalAlpha = o.alpha;
-        ctx.fillStyle = grad(x,y,o.r);
-        ctx.beginPath();
-        ctx.arc(x, y, o.r, 0, Math.PI*2);
-        ctx.fill();
+    // Zachte filmgrain voor extra dynamiek zonder zware noise
+    ctx.globalCompositeOperation = 'source-over';
+    const grainAlpha = 0.04;
+    const cell = 64;
+    for(let y=0;y<h;y+=cell){
+      for(let x=0;x<w;x+=cell){
+        const a = (Math.random()*grainAlpha);
+        ctx.fillStyle = 'rgba(255,255,255,'+a+')';
+        ctx.fillRect(x,y,cell,cell);
       }
-
-      ctx.globalAlpha = 1;
-      // add lichte “glow sweep”
-      const sweepY = (Math.sin(t*0.0006)+1)/2 * H;
-      const lg = ctx.createLinearGradient(0, sweepY-120, 0, sweepY+120);
-      lg.addColorStop(0,'rgba(255,255,255,0)');
-      lg.addColorStop(0.5,'rgba(255,255,255,0.07)');
-      lg.addColorStop(1,'rgba(255,255,255,0)');
-      ctx.fillStyle = lg;
-      ctx.fillRect(0,0,W,H);
     }
-    raf = requestAnimationFrame(tick);
 
-    // Respecteer reduced-motion
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    function applyMotionPref(){
-      if(mq.matches){ cancelAnimationFrame(raf); ctx.clearRect(0,0,W,H); }
-      else { cancelAnimationFrame(raf); raf = requestAnimationFrame(tick); }
+    // Dynamisch aantal bij resize
+    const target = orbCount();
+    if (orbs.length !== target){
+      seedOrbs(target);
     }
-    mq.addEventListener?.('change', applyMotionPref); applyMotionPref();
-  })();
-  </script>
+
+    requestAnimationFrame(tick);
+  }
+
+  requestAnimationFrame(tick);
+})();
+</script>
 </body>
 </html>
 """
