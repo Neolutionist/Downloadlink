@@ -14,6 +14,7 @@ import logging
 import sqlite3
 import smtplib
 import urllib.request
+import zipstream   # komt uit zipstream-ng
 from email.message import EmailMessage
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -2287,86 +2288,51 @@ def stream_zip(token):
     if not pkg: c.close(); abort(404)
     if datetime.fromisoformat(pkg["expires_at"]) <= datetime.now(timezone.utc): c.close(); abort(410)
     if pkg["password_hash"] and not session.get(f"allow_{token}", False): c.close(); abort(403)
-    rows = c.execute("""SELECT name,path,s3_key FROM items
+    rows = c.execute("""SELECT name, path, s3_key FROM items
                         WHERE token=? AND tenant_id=?
                         ORDER BY path""", (token, t)).fetchall()
     c.close()
     if not rows: abort(404)
 
-    # Precheck ontbrekende objecten
-    missing=[]
-    try:
-        for r in rows:
-            try: s3.head_object(Bucket=S3_BUCKET, Key=r["s3_key"])
-            except ClientError as ce:
-                code=ce.response.get("Error",{}).get("Code","")
-                if code in {"NoSuchKey","NotFound","404"}: missing.append(r["path"] or r["name"])
-                else: raise
-    except Exception:
-        log.exception("zip precheck failed")
-        resp=Response("ZIP precheck mislukt. Zie serverlogs.", status=500, mimetype="text/plain")
-        resp.headers["X-Error"]="zip_precheck_failed"; return resp
+    # Precheck: bestaan alle objecten?
+    missing = []
+    for r in rows:
+        try:
+            s3.head_object(Bucket=S3_BUCKET, Key=r["s3_key"])
+        except ClientError as ce:
+            code = ce.response.get("Error", {}).get("Code", "")
+            if code in {"NoSuchKey", "NotFound", "404"}:
+                missing.append(r["path"] or r["name"])
+            else:
+                raise
     if missing:
-        text="De volgende items ontbreken in S3 en kunnen niet gezipt worden:\n- " + "\n- ".join(missing)
-        resp=Response(text, mimetype="text/plain", status=422)
-        resp.headers["X-Error"]="NoSuchKey: " + ", ".join(missing); return resp
-
-    try:
-        z = ZipStream()
-
-        class _GenReader:
-            def __init__(self, gen): self._it = gen; self._buf=b""; self._done=False
-            def read(self, n=-1):
-                if self._done and not self._buf: return b""
-                if n is None or n<0:
-                    chunks=[self._buf]; self._buf=b""
-                    for ch in self._it: chunks.append(ch)
-                    self._done=True; return b"".join(chunks)
-                while len(self._buf)<n and not self._done:
-                    try: self._buf += next(self._it)
-                    except StopIteration: self._done=True; break
-                out,self._buf=self._buf[:n],self._buf[n:]; return out
-
-        def add_compat(arcname, gen_factory):
-            if hasattr(z,"add_iter"):
-                try: z.add_iter(arcname, gen_factory()); return
-                except Exception: pass
-            try: z.add(arcname=arcname, iterable=gen_factory()); return
-            except Exception: pass
-            try: z.add(arcname=arcname, stream=gen_factory()); return
-            except Exception: pass
-            try: z.add(arcname=arcname, fileobj=_GenReader(gen_factory())); return
-            except Exception: pass
-            try: z.add(arcname, gen_factory()); return
-            except Exception: pass
-            try: z.add(gen_factory(), arcname); return
-            except Exception: pass
-            raise RuntimeError("Geen compatibele zipstream-ng add() signatuur gevonden")
-
-        for r in rows:
-            arcname = r["path"] or r["name"]
-            def reader(key=r["s3_key"]):
-                obj = s3.get_object(Bucket=S3_BUCKET, Key=key)
-                for chunk in obj["Body"].iter_chunks(1024*512):
-                    if chunk: yield chunk
-            add_compat(arcname, lambda: reader())
-
-        def generate():
-            for chunk in z: yield chunk
-
-        filename = (pkg["title"] or f"onderwerp-{token}").strip().replace('"','')
-        if not filename.lower().endswith(".zip"): filename += ".zip"
-
-        resp = Response(stream_with_context(generate()), mimetype="application/zip")
-        resp.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
-        resp.headers["X-Filename"] = filename
+        text = "De volgende items ontbreken in S3 en kunnen niet gezipt worden:\n- " + "\n- ".join(missing)
+        resp = Response(text, mimetype="text/plain", status=422)
+        resp.headers["X-Error"] = "NoSuchKey: " + ", ".join(missing)
         return resp
-    except Exception as e:
-        log.exception("stream_zip failed")
-        msg = f"ZIP generatie mislukte. Err: {e}"
-        resp = Response(msg, status=500, mimetype="text/plain")
-        resp.headers["X-Error"] = "zipstream_failed"
-        return resp
+
+    # === zipstream-ng correct gebruik ===
+    z = zipstream.ZipFile(mode="w", compression=zipstream.ZIP_DEFLATED)
+
+    def s3_iter(key):
+        obj = s3.get_object(Bucket=S3_BUCKET, Key=key)
+        for chunk in obj["Body"].iter_chunks(1024 * 512):
+            if chunk:
+                yield chunk
+
+    for r in rows:
+        arcname = r["path"] or r["name"]
+        z.write_iter(arcname, s3_iter(r["s3_key"]))
+
+    filename = (pkg["title"] or f"onderwerp-{token}").strip().replace('"', '')
+    if not filename.lower().endswith(".zip"):
+        filename += ".zip"
+
+    resp = Response(z, mimetype="application/zip")
+    resp.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    resp.headers["X-Filename"] = filename
+    return resp
+
         
 @app.route("/terms")
 def terms_page():
