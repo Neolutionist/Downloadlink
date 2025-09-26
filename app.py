@@ -1406,6 +1406,13 @@ BILLING_HTML = """
   .table td[data-label]:before{content:attr(data-label) ": ";font-weight:600;color:#334155}
   .table td.actions{white-space:normal}
 }
+/* modal */
+dialog{border:1px solid #e5e7eb;border-radius:16px;padding:0;max-width:min(720px,94vw)}
+dialog::backdrop{background:rgba(15,23,42,.55)}
+.modal-head{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.1rem;border-bottom:1px solid #e5e7eb;background:#fff}
+.modal-body{padding:1rem 1.1rem;background:#fff;max-height:min(70vh,70dvh);overflow:auto}
+.modal-foot{padding:0 1.1rem 1rem;background:#fff}
+.btn.danger{background:#b91c1c}
 </style></head><body>
 {{ bg|safe }}
 <div class="wrap">
@@ -1414,14 +1421,12 @@ BILLING_HTML = """
     <div>Ingelogd als {{ user }} • <a href="{{ url_for('logout') }}">Uitloggen</a></div>
   </div>
 
-  <!-- === Opslagstatus per tenant === -->
+  <!-- Opslagstatus -->
   <div class="card" style="margin-bottom:1rem">
     <div class="stat">
       <h3>Cloudopslag (S3/B2)</h3>
       <div class="kv">
-        <div>
-          <span class="tenant-tag">{{ tenant_label }}</span>
-        </div>
+        <div><span class="tenant-tag">{{ tenant_label }}</span></div>
         <div class="small">{{ used_h }} gebruikt van {{ limit_h }} limiet</div>
       </div>
       <div class="bar" aria-label="Opslagverbruik"><i style="width:{{ pct }}%"></i></div>
@@ -1436,6 +1441,7 @@ BILLING_HTML = """
     </div>
   </div>
 
+  <!-- Abonnement -->
   <div class="card" style="margin-bottom:1rem">
     {% if sub %}
       <div class="small" style="margin-bottom:.8rem">
@@ -1461,46 +1467,62 @@ BILLING_HTML = """
     {% endif %}
   </div>
 
-  <!-- === NIEUW: Bestandenoverzicht === -->
+  <!-- NIEUW: Pakketten-overzicht (1 rij per upload/pakket) -->
   <div class="card">
-    <h3 style="margin:.1rem 0;color:var(--brand)">Bestanden</h3>
-    {% if files and files|length > 0 %}
-      <table class="table" id="filesTable">
+    <h3 style="margin:.1rem 0;color:var(--brand)">Pakketten</h3>
+    {% if packs and packs|length > 0 %}
+      <table class="table" id="packsTable">
         <thead>
           <tr>
-            <th>Bestand</th>
-            <th>Pakket</th>
+            <th>Onderwerp</th>
+            <th>Bestanden</th>
             <th>Verloopt</th>
-            <th style="text-align:right">Grootte</th>
+            <th style="text-align:right">Totaal</th>
             <th style="width:1%"></th>
           </tr>
         </thead>
         <tbody>
-          {% for f in files %}
-          <tr data-item-id="{{ f.item_id }}" data-token="{{ f.token }}">
-            <td data-label="Bestand">{{ f.name }}</td>
-            <td data-label="Pakket">{{ f.title }}</td>
-            <td data-label="Verloopt"><span class="expires">{{ f.expires_h }}</span></td>
-            <td data-label="Grootte" style="text-align:right">{{ f.size_h }}</td>
+          {% for p in packs %}
+          <tr data-token="{{ p.token }}">
+            <td data-label="Onderwerp">{{ p.title }}</td>
+            <td data-label="Bestanden">{{ p.files_count }}</td>
+            <td data-label="Verloopt"><span class="expires">{{ p.expires_h }}</span></td>
+            <td data-label="Totaal" style="text-align:right">{{ p.total_h }}</td>
             <td class="actions" data-label="">
-              <button class="btn small danger" data-action="delete">Verwijderen</button>
+              <button class="btn small" data-action="details">Details</button>
               <button class="btn small secondary" data-action="extend">+30 dagen</button>
+              <button class="btn small danger" data-action="delete">Verwijderen</button>
             </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
-      <p class="small" style="color:#475569;margin-top:.5rem">Let op: <em>+30 dagen</em> verlengt de verlooptijd van het <strong>hele pakket</strong> waar dit bestand in zit.</p>
+      <p class="small" style="color:#475569;margin-top:.5rem">“+30 dagen” verlengt dit <strong>hele pakket</strong>.</p>
     {% else %}
-      <p class="small">Nog geen bestanden gevonden.</p>
+      <p class="small">Nog geen uploads/pakketten gevonden.</p>
     {% endif %}
   </div>
 
   <p class="footer">DownloadLink.nl • Bestandentransfer</p>
 </div>
 
+<!-- Eén (1) modal voor alle pakketten; wordt dynamisch gevuld -->
+<dialog id="packDlg" aria-label="Pakketdetails">
+  <div class="modal-head">
+    <strong id="dlgTitle">Pakket</strong>
+    <button class="btn small" id="dlgClose">Sluiten</button>
+  </div>
+  <div class="modal-body">
+    <div id="dlgMeta" class="small" style="margin-bottom:.6rem;color:#475569"></div>
+    <table class="table" id="dlgTable">
+      <thead><tr><th>Bestand</th><th>Pad</th><th style="text-align:right">Grootte</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="modal-foot"></div>
+</dialog>
+
 <script>
-// --- bestaande helpers voor API-calls ---
 async function api(url, body){
   const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body||{})});
   const j = await r.json().catch(()=>({}));
@@ -1530,29 +1552,55 @@ document.getElementById('btnChange')?.addEventListener('click', async ()=>{
   }catch(e){ alert('Mislukt: ' + e.message); }
 });
 
-// --- NIEUW: acties op bestanden ---
-const tbl = document.getElementById('filesTable');
+// Pakket-acties (1 venster per upload)
+const tbl = document.getElementById('packsTable');
+const dlg = document.getElementById('packDlg');
+const dlgClose = document.getElementById('dlgClose');
+const dlgTitle = document.getElementById('dlgTitle');
+const dlgMeta  = document.getElementById('dlgMeta');
+const dlgTBody = document.querySelector('#dlgTable tbody');
+
+dlgClose?.addEventListener('click', ()=> dlg.close());
+
 if (tbl){
   tbl.addEventListener('click', async (ev)=>{
     const btn = ev.target.closest('button[data-action]');
     if (!btn) return;
     const tr = btn.closest('tr');
-    const itemId = parseInt(tr?.dataset?.itemId || '0', 10);
-    const token  = (tr?.dataset?.token || '').trim();
+    const token = (tr?.dataset?.token || '').trim();
     const action = btn.dataset.action;
 
     try{
-      if (action === 'delete'){
-        if (!confirm('Dit bestand verwijderen?')) return;
-        await api("{{ url_for('billing_item_delete') }}", { item_id: itemId });
-        tr.remove();
-      } else if (action === 'extend'){
+      if (action === 'extend'){
         const res = await api("{{ url_for('billing_package_extend') }}", { token });
-        // update “Verloopt”
         const iso = res?.new_expires_at || '';
         const d = (iso ? new Date(iso) : null);
         const fmt = d ? d.toLocaleString('nl-NL', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : 'bijgewerkt';
         tr.querySelector('.expires').textContent = fmt;
+      } else if (action === 'delete'){
+        if (!confirm('Hele pakket verwijderen (alle bestanden)?')) return;
+        await api("{{ url_for('billing_package_delete') }}", { token });
+        tr.remove();
+      } else if (action === 'details'){
+        // Modal vullen met bestanden van dit pakket
+        dlgTitle.textContent = 'Pakket ' + token;
+        dlgMeta.textContent = 'Bestanden laden…';
+        dlgTBody.innerHTML = '';
+        if (typeof dlg.showModal === 'function'){ dlg.showModal(); } else { alert('Je browser ondersteunt geen modale vensters.'); }
+        const res = await api("{{ url_for('billing_package_files') }}", { token });
+        const files = res?.files || [];
+        dlgMeta.textContent = files.length + ' bestand(en) in dit pakket.';
+        if (!files.length){
+          dlgTBody.innerHTML = '<tr><td colspan="3" class="small">Geen bestanden gevonden.</td></tr>';
+        } else {
+          dlgTBody.innerHTML = files.map(f => (
+            '<tr>' +
+              '<td data-label="Bestand">' + (f.name||'') + '</td>' +
+              '<td data-label="Pad" class="small">' + (f.path||'') + '</td>' +
+              '<td data-label="Grootte" style="text-align:right">' + (f.size_h||'') + '</td>' +
+            '</tr>'
+          )).join('');
+        }
       }
     }catch(e){
       alert('Actie mislukt: ' + (e?.message || e));
@@ -1866,6 +1914,91 @@ def paypal_access_token():
     with urllib.request.urlopen(req, data=data, timeout=20) as resp:
         j = json.loads(resp.read().decode())
         return j["access_token"]
+
+# === Pakket-helpers ===
+def list_packages_with_stats(tenant_slug: str, limit: int = 200) -> list[dict]:
+    c = db()
+    try:
+        rows = c.execute("""
+            SELECT p.token, p.title, p.expires_at, p.created_at,
+                   COUNT(i.id) AS files_count,
+                   COALESCE(SUM(i.size_bytes), 0) AS total_bytes
+            FROM packages p
+            LEFT JOIN items i ON i.token = p.token AND i.tenant_id = p.tenant_id
+            WHERE p.tenant_id = ?
+            GROUP BY p.token, p.title, p.expires_at, p.created_at
+            ORDER BY p.created_at DESC
+            LIMIT ?
+        """, (tenant_slug, limit)).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        c.close()
+
+def list_files_in_package(token: str, tenant_slug: str) -> list[dict]:
+    c = db()
+    try:
+        rows = c.execute("""
+            SELECT id AS item_id, name, path, size_bytes
+            FROM items
+            WHERE token = ? AND tenant_id = ?
+            ORDER BY path, name
+        """, (token, tenant_slug)).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        c.close()
+
+# === API: bestanden in pakket (voor modal) ===
+@app.route("/billing/package/files", methods=["POST"])
+def billing_package_files():
+    if not logged_in():
+        abort(401)
+    data = request.get_json(force=True, silent=True) or {}
+    token = (data.get("token") or "").strip()
+    if not token:
+        return jsonify(ok=False, error="missing_token"), 400
+    t = current_tenant()["slug"]
+    files = list_files_in_package(token, t)
+    out = [{
+        "item_id": f["item_id"],
+        "name": f["name"],
+        "path": f.get("path") or f["name"],
+        "size_h": human(int(f["size_bytes"] or 0))
+    } for f in files]
+    return jsonify(ok=True, files=out)
+
+# === API: compleet pakket verwijderen ===
+@app.route("/billing/package/delete", methods=["POST"])
+def billing_package_delete():
+    if not logged_in():
+        abort(401)
+    data = request.get_json(force=True, silent=True) or {}
+    token = (data.get("token") or "").strip()
+    if not token:
+        return jsonify(ok=False, error="missing_token"), 400
+
+    t = current_tenant()["slug"]
+    c = db()
+    try:
+        # haal alle items
+        items = c.execute(
+            "SELECT s3_key FROM items WHERE token=? AND tenant_id=?",
+            (token, t)
+        ).fetchall()
+
+        # verwijder S3 objecten (best effort)
+        for r in items:
+            try:
+                s3.delete_object(Bucket=S3_BUCKET, Key=r["s3_key"])
+            except Exception:
+                log.exception("S3 delete_object failed (token=%s)", token)
+
+        # DB opschonen
+        c.execute("DELETE FROM items WHERE token=? AND tenant_id=?", (token, t))
+        c.execute("DELETE FROM packages WHERE token=? AND tenant_id=?", (token, t))
+        c.commit()
+        return jsonify(ok=True)
+    finally:
+        c.close()
 
 # --------- Basishost voor subdomein-preview ----------
 def get_base_host():
@@ -2598,20 +2731,19 @@ def billing_page():
     finally:
         c.close()
 
-    # Nieuw: bestanden + pakketinfo
-    rows = list_items_with_packages(t)
-    files = []
+    # NIEUW: 1 rij per pakket
+    rows = list_packages_with_stats(t)
+    packs = []
     for r in rows:
         try:
             exp_dt = datetime.fromisoformat(r["expires_at"])
         except Exception:
             exp_dt = datetime.now(timezone.utc)
-        files.append({
-            "item_id":   r["item_id"],
-            "name":      r["name"],
-            "size_h":    human(int(r["size_bytes"] or 0)),
-            "token":     r["token"],
-            "title":     r["title"] or r["token"],
+        packs.append({
+            "token": r["token"],
+            "title": r["title"] or r["token"],
+            "files_count": int(r["files_count"] or 0),
+            "total_h": human(int(r["total_bytes"] or 0)),
             "expires_h": exp_dt.strftime("%d-%m-%Y %H:%M"),
             "expires_iso": r["expires_at"],
         })
@@ -2629,7 +2761,8 @@ def billing_page():
         base_css=BASE_CSS,
         bg=BG_DIV,
         head_icon=HTML_HEAD_ICON,
-        files=files,  # << doorgeven aan template
+        packs=packs,               # << doorgeven aan template
+        user=session.get("user"),  # voor header
     )
 
 @app.route("/debug/tenant-usage")
