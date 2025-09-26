@@ -433,6 +433,87 @@ LOGIN_HTML = """
     }, {passive:true});
   })();
   </script>
+    <script>
+  // === Dynamische achtergrond (canvas orbs/particles) ===
+  (function(){
+    const el = document.getElementById('fx');
+    if(!el) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const ctx = el.getContext('2d', { alpha:true });
+    let W=0,H=0, orbs=[], t=0, raf;
+
+    function resize(){
+      W = el.clientWidth; H = el.clientHeight;
+      el.width = Math.floor(W*dpr); el.height = Math.floor(H*dpr);
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+    }
+    new ResizeObserver(resize).observe(el); resize();
+
+    const N = 24; // aantal orbs (verhoog voor nóg meer dynamiek)
+    function rand(min,max){ return min + Math.random()*(max-min); }
+
+    function init(){
+      orbs = Array.from({length:N}, (_,i)=>({
+        r: rand(120, 360),
+        x0: rand(-0.4,1.4)*W,
+        y0: rand(-0.2,1.2)*H,
+        ang: rand(0, Math.PI*2),
+        speed: rand(0.0006, 0.0018)*(i%3?1:1.6),
+        amp: rand(40, 160),
+        alpha: rand(0.08, 0.24)
+      }));
+    }
+    init();
+    window.addEventListener('resize', init, {passive:true});
+
+    // kleurverloop helper
+    function grad(x,y,r){
+      const g = ctx.createRadialGradient(x,y, r*0.1, x,y, r);
+      g.addColorStop(0, 'rgba(132,182,255,0.55)');
+      g.addColorStop(0.5, 'rgba(181,156,255,0.35)');
+      g.addColorStop(1, 'rgba(92,225,185,0.0)');
+      return g;
+    }
+
+    function tick(now){
+      raf = requestAnimationFrame(tick);
+      t = now || performance.now();
+      ctx.clearRect(0,0,W,H);
+
+      // subtiele noise-overlay voor extra ‘leven’
+      ctx.globalCompositeOperation='source-over';
+
+      for(const o of orbs){
+        const x = o.x0 + Math.cos(o.ang + t*o.speed)*o.amp;
+        const y = o.y0 + Math.sin(o.ang*1.15 + t*o.speed*0.85)*o.amp*0.8;
+        ctx.globalAlpha = o.alpha;
+        ctx.fillStyle = grad(x,y,o.r);
+        ctx.beginPath();
+        ctx.arc(x, y, o.r, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      ctx.globalAlpha = 1;
+      // add lichte “glow sweep”
+      const sweepY = (Math.sin(t*0.0006)+1)/2 * H;
+      const lg = ctx.createLinearGradient(0, sweepY-120, 0, sweepY+120);
+      lg.addColorStop(0,'rgba(255,255,255,0)');
+      lg.addColorStop(0.5,'rgba(255,255,255,0.07)');
+      lg.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.fillStyle = lg;
+      ctx.fillRect(0,0,W,H);
+    }
+    raf = requestAnimationFrame(tick);
+
+    // Respecteer reduced-motion
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    function applyMotionPref(){
+      if(mq.matches){ cancelAnimationFrame(raf); ctx.clearRect(0,0,W,H); }
+      else { cancelAnimationFrame(raf); raf = requestAnimationFrame(tick); }
+    }
+    mq.addEventListener?.('change', applyMotionPref); applyMotionPref();
+  })();
+  </script>
 </body>
 </html>
 """
