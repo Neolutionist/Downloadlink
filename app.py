@@ -2406,8 +2406,8 @@ def billing_page():
     t = current_tenant()["slug"]
     user_email = (session.get("user") or "").lower().strip()
 
-    used  = tenant_usage_bytes(t)                     # ← uit DB
-    limit = user_limit_bytes(user_email)              # ← uit USERS dict
+    used  = tenant_usage_bytes(t)
+    limit = user_limit_bytes(user_email)
     pct   = 0 if limit <= 0 else min(999, round(used / limit * 100))
 
     c = db()
@@ -2427,10 +2427,14 @@ def billing_page():
         limit=limit,
         pct=pct,
         sub=sub,
-        tenant_label = current_tenant()["slug"],
-        used_h = human(used),
-        limit_h = human(limit),
-        over = used > limit,
+        tenant_label=current_tenant()["slug"],
+        used_h=human(used),
+        limit_h=human(limit),
+        over=used > limit,
+        # ← deze drie ontbraken
+        base_css=BASE_CSS,
+        bg=BG_DIV,
+        head_icon=HTML_HEAD_ICON,
     )
 
 @app.route("/debug/tenant-usage")
