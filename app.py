@@ -2299,7 +2299,7 @@ def stream_zip(token):
     if not rows:
         abort(404)
 
-    # --- bestaan alle objecten? (heldere fout als iets ontbreekt)
+    # --- precheck
     missing = []
     try:
         for r in rows:
@@ -2324,9 +2324,9 @@ def stream_zip(token):
         return resp
 
     try:
-        # --- zipstream-ng veilig initialiseren
-        compression = getattr(zipstream, "ZIP_DEFLATED", 8)  # fallback voor zeldzame builds
-        z = zipstream.ZipFile(mode="w", compression=compression)
+        # -- BELANGRIJK: zipstream-ng gebruikt ZipStream (niet ZipFile)
+        compression = getattr(zipstream, "ZIP_DEFLATED", 8)
+        z = zipstream.ZipStream(mode="w", compression=compression)
 
         def s3_iter(key):
             obj = s3.get_object(Bucket=S3_BUCKET, Key=key)
@@ -2336,13 +2336,22 @@ def stream_zip(token):
 
         for r in rows:
             arcname = r["path"] or r["name"]
-            z.write_iter(arcname, s3_iter(r["s3_key"]))
+            it = s3_iter(r["s3_key"])
+
+            if hasattr(z, "write_iter"):
+                z.write_iter(arcname, it)
+            elif hasattr(z, "add"):
+                # oudere api-variant in zipstream-ng
+                z.add(arcname=arcname, iterable=it)
+            elif hasattr(z, "add_iter"):
+                z.add_iter(arcname, it)
+            else:
+                raise RuntimeError("zipstream-ng: geen geschikte add/write_iter methode gevonden")
 
         filename = (pkg["title"] or f"onderwerp-{token}").strip().replace('"', '')
         if not filename.lower().endswith(".zip"):
             filename += ".zip"
 
-        # direct_passthrough voorkomt onnodig bufferen
         resp = Response(z, mimetype="application/zip", direct_passthrough=True)
         resp.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
         resp.headers["X-Filename"] = filename
@@ -2354,7 +2363,7 @@ def stream_zip(token):
         resp = Response(msg, status=500, mimetype="text/plain")
         resp.headers["X-Error"] = "zipstream_failed"
         return resp
-
+        
         
 @app.route("/terms")
 def terms_page():
