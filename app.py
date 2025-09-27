@@ -2299,7 +2299,7 @@ def stream_zip(token):
     if not rows:
         abort(404)
 
-    # --- precheck
+    # --- Precheck op bestaan S3-objecten
     missing = []
     try:
         for r in rows:
@@ -2323,10 +2323,19 @@ def stream_zip(token):
         resp.headers["X-Error"] = "NoSuchKey: " + ", ".join(missing)
         return resp
 
+    # --- ZIP streamen
     try:
-        # -- BELANGRIJK: zipstream-ng gebruikt ZipStream (niet ZipFile)
-        compression = getattr(zipstream, "ZIP_DEFLATED", 8)
-        z = zipstream.ZipStream(mode="w", compression=compression)
+        comp = getattr(zipstream, "ZIP_DEFLATED", 8)
+
+        # Constructor-fallbacks voor verschillende zipstream(-ng) varianten
+        z = None
+        try:
+            z = zipstream.ZipStream(mode="w", compression=comp)
+        except TypeError:
+            try:
+                z = zipstream.ZipStream(compression=comp)
+            except TypeError:
+                z = zipstream.ZipStream()  # laatste redmiddel
 
         def s3_iter(key):
             obj = s3.get_object(Bucket=S3_BUCKET, Key=key)
@@ -2338,10 +2347,10 @@ def stream_zip(token):
             arcname = r["path"] or r["name"]
             it = s3_iter(r["s3_key"])
 
+            # API-fallbacks: write_iter → add → add_iter
             if hasattr(z, "write_iter"):
                 z.write_iter(arcname, it)
             elif hasattr(z, "add"):
-                # oudere api-variant in zipstream-ng
                 z.add(arcname=arcname, iterable=it)
             elif hasattr(z, "add_iter"):
                 z.add_iter(arcname, it)
@@ -2352,8 +2361,9 @@ def stream_zip(token):
         if not filename.lower().endswith(".zip"):
             filename += ".zip"
 
+        # ZipStream is zelf een iterator; Response kan daar direct op streamen
         resp = Response(z, mimetype="application/zip", direct_passthrough=True)
-        resp.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+        resp.headers["Content-Disposition"] = f'attachment; filename=\"{filename}\""
         resp.headers["X-Filename"] = filename
         return resp
 
@@ -2363,7 +2373,7 @@ def stream_zip(token):
         resp = Response(msg, status=500, mimetype="text/plain")
         resp.headers["X-Error"] = "zipstream_failed"
         return resp
-        
+
         
 @app.route("/terms")
 def terms_page():
