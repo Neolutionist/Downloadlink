@@ -2294,7 +2294,7 @@ def stream_zip(token):
     c.close()
     if not rows: abort(404)
 
-    # Precheck op ontbrekende S3-objecten
+    # Precheck ontbrekende objecten
     missing = []
     try:
         for r in rows:
@@ -2317,28 +2317,46 @@ def stream_zip(token):
         resp.headers["X-Error"] = "NoSuchKey: " + ", ".join(missing)
         return resp
 
-    try:
-        # === zipstream-ng 1.7.1 API ===
-        zf = zipstream.ZipFile(mode='w', compression=getattr(zipstream, 'ZIP_DEFLATED', 0), allowZip64=True)
-
-        def s3_reader(key):
-            obj = s3.get_object(Bucket=S3_BUCKET, Key=key)
-            for chunk in obj["Body"].iter_chunks(1024 * 512):
-                if chunk:
-                    yield chunk
-
-        for r in rows:
-            arcname = r["path"] or r["name"]
-            zf.write_iter(arcname, s3_reader(r["s3_key"]))
-
-        def generate():
-            for chunk in zf:
+    # Reader die in chunks uit S3 streamt
+    def s3_reader(key):
+        obj = s3.get_object(Bucket=S3_BUCKET, Key=key)
+        for chunk in obj["Body"].iter_chunks(1024 * 512):
+            if chunk:
                 yield chunk
 
-        filename = (pkg["title"] or f"onderwerp-{token}").strip().replace('"', '')
+    try:
+        # === zipstream-ng (nieuwere API) ===
+        if hasattr(zipstream, "ZipFile"):
+            zobj = zipstream.ZipFile(
+                mode="w",
+                compression=getattr(zipstream, "ZIP_DEFLATED", 0),
+                allowZip64=True,
+            )
+            for r in rows:
+                arcname = r["path"] or r["name"]
+                zobj.write_iter(arcname, s3_reader(r["s3_key"]))
+            zip_iter = iter(zobj)
+
+        # === oude zipstream API ===
+        else:
+            zobj = zipstream.ZipStream()  # geen args!
+            for r in rows:
+                arcname = r["path"] or r["name"]
+                gen = s3_reader(r["s3_key"])
+                # sommige versies hebben add_iter, andere alleen add(stream als 2e positional)
+                if hasattr(zobj, "add_iter"):
+                    zobj.add_iter(arcname, gen)
+                else:
+                    zobj.add(arcname, gen)
+            zip_iter = iter(zobj)
+
+        def generate():
+            for chunk in zip_iter:
+                yield chunk
+
+        filename = (pkg["title"] or f"onderwerp-{token}").strip().replace('"', "")
         if not filename.lower().endswith(".zip"):
             filename += ".zip"
-
         from urllib.parse import quote as urlquote
         ascii_name = filename.encode("ascii", "ignore").decode() or "download.zip"
 
