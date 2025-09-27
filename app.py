@@ -2363,7 +2363,7 @@ def stream_zip(token):
 
         # ZipStream is zelf een iterator; Response kan daar direct op streamen
         resp = Response(z, mimetype="application/zip", direct_passthrough=True)
-        resp.headers["Content-Disposition"] = f'attachment; filename=\"{filename}\""
+        resp.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
         resp.headers["X-Filename"] = filename
         return resp
 
