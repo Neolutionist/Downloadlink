@@ -2282,19 +2282,28 @@ def stream_file(token, item_id):
 
 @app.route("/zip/<token>")
 def stream_zip(token):
+    # --- pakket + permissies ---
     c = db()
     t = current_tenant()["slug"]
     pkg = c.execute("SELECT * FROM packages WHERE token=? AND tenant_id=?", (token, t)).fetchone()
-    if not pkg: c.close(); abort(404)
-    if datetime.fromisoformat(pkg["expires_at"]) <= datetime.now(timezone.utc): c.close(); abort(410)
-    if pkg["password_hash"] and not session.get(f"allow_{token}", False): c.close(); abort(403)
-    rows = c.execute("""SELECT name,path,s3_key FROM items
-                        WHERE token=? AND tenant_id=?
-                        ORDER BY path""", (token, t)).fetchall()
-    c.close()
-    if not rows: abort(404)
+    if not pkg:
+        c.close(); abort(404)
+    if datetime.fromisoformat(pkg["expires_at"]) <= datetime.now(timezone.utc):
+        c.close(); abort(410)
+    if pkg["password_hash"] and not session.get(f"allow_{token}", False):
+        c.close(); abort(403)
 
-    # Precheck ontbrekende objecten
+    rows = c.execute("""
+        SELECT name, path, s3_key
+        FROM items
+        WHERE token=? AND tenant_id=?
+        ORDER BY path
+    """, (token, t)).fetchall()
+    c.close()
+    if not rows:
+        abort(404)
+
+    # --- precheck op ontbrekende S3-objecten (mooier foutbericht) ---
     missing = []
     try:
         for r in rows:
@@ -2313,19 +2322,56 @@ def stream_zip(token):
         return resp
     if missing:
         text = "De volgende items ontbreken in S3 en kunnen niet gezipt worden:\n- " + "\n- ".join(missing)
-        resp = Response(text, mimetype="text/plain", status=422)
+        resp = Response(text, status=422, mimetype="text/plain")
         resp.headers["X-Error"] = "NoSuchKey: " + ", ".join(missing)
         return resp
 
-    # Reader die in chunks uit S3 streamt
+    # --- S3 chunk reader ---
     def s3_reader(key):
         obj = s3.get_object(Bucket=S3_BUCKET, Key=key)
         for chunk in obj["Body"].iter_chunks(1024 * 512):
             if chunk:
                 yield chunk
 
+    # --- helpers die API-verschillen van zipstream (-ng) maskeren ---
+    def _safe_write_iter(zobj, arcname, gen):
+        """Ondersteunt write_iter(arcname, iterable) én write_iter(iterable, arcname)."""
+        w = getattr(zobj, "write_iter", None)
+        if not callable(w):
+            raise AttributeError("write_iter ontbreekt")
+        try:
+            # meest gangbare in moderne zipstream-ng builds
+            return w(arcname, gen)
+        except Exception:
+            # sommige builds gebruiken omgekeerde volgorde
+            return w(gen, arcname)
+
+    def _safe_add(zobj, arcname, gen):
+        """Ondersteunt add_iter(...) of add(...) met beide argumentvolgordes."""
+        if hasattr(zobj, "add_iter"):
+            try:
+                return zobj.add_iter(arcname, gen)
+            except Exception:
+                return zobj.add_iter(gen, arcname)
+        # oudere API: add(...)
+        try:
+            return zobj.add(arcname, gen)
+        except Exception:
+            return zobj.add(gen, arcname)
+
     try:
-        # === zipstream-ng (nieuwere API) ===
+        # Log even welke variant actief is (handig bij debuggen)
+        try:
+            log.info(
+                "zipstream module=%s has ZipFile=%s ZipStream=%s",
+                getattr(zipstream, "__file__", "?"),
+                hasattr(zipstream, "ZipFile"),
+                hasattr(zipstream, "ZipStream"),
+            )
+        except Exception:
+            pass
+
+        # === zipstream-ng: ZipFile aanwezig ===
         if hasattr(zipstream, "ZipFile"):
             zobj = zipstream.ZipFile(
                 mode="w",
@@ -2334,26 +2380,24 @@ def stream_zip(token):
             )
             for r in rows:
                 arcname = r["path"] or r["name"]
-                zobj.write_iter(arcname, s3_reader(r["s3_key"]))
+                _safe_write_iter(zobj, arcname, s3_reader(r["s3_key"]))
             zip_iter = iter(zobj)
 
-        # === oude zipstream API ===
+        # === oudere zipstream API ===
         else:
-            zobj = zipstream.ZipStream()  # geen args!
+            zobj = zipstream.ZipStream()  # meestal zonder args
             for r in rows:
                 arcname = r["path"] or r["name"]
-                gen = s3_reader(r["s3_key"])
-                # sommige versies hebben add_iter, andere alleen add(stream als 2e positional)
-                if hasattr(zobj, "add_iter"):
-                    zobj.add_iter(arcname, gen)
-                else:
-                    zobj.add(arcname, gen)
+                _safe_add(zobj, arcname, s3_reader(r["s3_key"]))
             zip_iter = iter(zobj)
 
         def generate():
             for chunk in zip_iter:
-                yield chunk
+                # sommige versies geven None terug als er (tijdelijk) niets is
+                if chunk:
+                    yield chunk
 
+        # nette bestandsnaam + RFC 5987 fallback
         filename = (pkg["title"] or f"onderwerp-{token}").strip().replace('"', "")
         if not filename.lower().endswith(".zip"):
             filename += ".zip"
@@ -2373,6 +2417,7 @@ def stream_zip(token):
         resp = Response(msg, status=500, mimetype="text/plain")
         resp.headers["X-Error"] = "zipstream_failed"
         return resp
+
 
         
 @app.route("/terms")
