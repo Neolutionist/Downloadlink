@@ -2285,53 +2285,75 @@ def stream_zip(token):
     c = db()
     t = current_tenant()["slug"]
     pkg = c.execute("SELECT * FROM packages WHERE token=? AND tenant_id=?", (token, t)).fetchone()
-    if not pkg: c.close(); abort(404)
-    if datetime.fromisoformat(pkg["expires_at"]) <= datetime.now(timezone.utc): c.close(); abort(410)
-    if pkg["password_hash"] and not session.get(f"allow_{token}", False): c.close(); abort(403)
+    if not pkg: 
+        c.close(); abort(404)
+    if datetime.fromisoformat(pkg["expires_at"]) <= datetime.now(timezone.utc):
+        c.close(); abort(410)
+    if pkg["password_hash"] and not session.get(f"allow_{token}", False):
+        c.close(); abort(403)
+
     rows = c.execute("""SELECT name, path, s3_key FROM items
                         WHERE token=? AND tenant_id=?
                         ORDER BY path""", (token, t)).fetchall()
     c.close()
-    if not rows: abort(404)
+    if not rows:
+        abort(404)
 
-    # Precheck: bestaan alle objecten?
+    # --- bestaan alle objecten? (heldere fout als iets ontbreekt)
     missing = []
-    for r in rows:
-        try:
-            s3.head_object(Bucket=S3_BUCKET, Key=r["s3_key"])
-        except ClientError as ce:
-            code = ce.response.get("Error", {}).get("Code", "")
-            if code in {"NoSuchKey", "NotFound", "404"}:
-                missing.append(r["path"] or r["name"])
-            else:
-                raise
+    try:
+        for r in rows:
+            try:
+                s3.head_object(Bucket=S3_BUCKET, Key=r["s3_key"])
+            except ClientError as ce:
+                code = (ce.response.get("Error", {}) or {}).get("Code", "")
+                if code in {"NoSuchKey", "NotFound", "404"}:
+                    missing.append(r["path"] or r["name"])
+                else:
+                    raise
+    except Exception:
+        log.exception("zip precheck failed")
+        resp = Response("ZIP precheck mislukt. Zie serverlogs.", status=500, mimetype="text/plain")
+        resp.headers["X-Error"] = "zip_precheck_failed"
+        return resp
+
     if missing:
         text = "De volgende items ontbreken in S3 en kunnen niet gezipt worden:\n- " + "\n- ".join(missing)
         resp = Response(text, mimetype="text/plain", status=422)
         resp.headers["X-Error"] = "NoSuchKey: " + ", ".join(missing)
         return resp
 
-    # === zipstream-ng correct gebruik ===
-    z = zipstream.ZipFile(mode="w", compression=zipstream.ZIP_DEFLATED)
+    try:
+        # --- zipstream-ng veilig initialiseren
+        compression = getattr(zipstream, "ZIP_DEFLATED", 8)  # fallback voor zeldzame builds
+        z = zipstream.ZipFile(mode="w", compression=compression)
 
-    def s3_iter(key):
-        obj = s3.get_object(Bucket=S3_BUCKET, Key=key)
-        for chunk in obj["Body"].iter_chunks(1024 * 512):
-            if chunk:
-                yield chunk
+        def s3_iter(key):
+            obj = s3.get_object(Bucket=S3_BUCKET, Key=key)
+            for chunk in obj["Body"].iter_chunks(1024 * 512):
+                if chunk:
+                    yield chunk
 
-    for r in rows:
-        arcname = r["path"] or r["name"]
-        z.write_iter(arcname, s3_iter(r["s3_key"]))
+        for r in rows:
+            arcname = r["path"] or r["name"]
+            z.write_iter(arcname, s3_iter(r["s3_key"]))
 
-    filename = (pkg["title"] or f"onderwerp-{token}").strip().replace('"', '')
-    if not filename.lower().endswith(".zip"):
-        filename += ".zip"
+        filename = (pkg["title"] or f"onderwerp-{token}").strip().replace('"', '')
+        if not filename.lower().endswith(".zip"):
+            filename += ".zip"
 
-    resp = Response(z, mimetype="application/zip")
-    resp.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
-    resp.headers["X-Filename"] = filename
-    return resp
+        # direct_passthrough voorkomt onnodig bufferen
+        resp = Response(z, mimetype="application/zip", direct_passthrough=True)
+        resp.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+        resp.headers["X-Filename"] = filename
+        return resp
+
+    except Exception as e:
+        log.exception("stream_zip failed")
+        msg = f"ZIP generatie mislukte. Err: {e}"
+        resp = Response(msg, status=500, mimetype="text/plain")
+        resp.headers["X-Error"] = "zipstream_failed"
+        return resp
 
         
 @app.route("/terms")
