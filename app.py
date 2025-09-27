@@ -2784,7 +2784,7 @@ def billing_page():
         c.close()
 
     # NIEUW: 1 rij per pakket
-    rows = list_packages_with_stats(t)
+    rows = list_packages_with_stats(t, user_email)
     packs = []
     for r in rows:
         try:
