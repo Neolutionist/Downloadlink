@@ -2285,28 +2285,23 @@ def stream_zip(token):
     c = db()
     t = current_tenant()["slug"]
     pkg = c.execute("SELECT * FROM packages WHERE token=? AND tenant_id=?", (token, t)).fetchone()
-    if not pkg: 
-        c.close(); abort(404)
-    if datetime.fromisoformat(pkg["expires_at"]) <= datetime.now(timezone.utc):
-        c.close(); abort(410)
-    if pkg["password_hash"] and not session.get(f"allow_{token}", False):
-        c.close(); abort(403)
-
-    rows = c.execute("""SELECT name, path, s3_key FROM items
+    if not pkg: c.close(); abort(404)
+    if datetime.fromisoformat(pkg["expires_at"]) <= datetime.now(timezone.utc): c.close(); abort(410)
+    if pkg["password_hash"] and not session.get(f"allow_{token}", False): c.close(); abort(403)
+    rows = c.execute("""SELECT name,path,s3_key FROM items
                         WHERE token=? AND tenant_id=?
                         ORDER BY path""", (token, t)).fetchall()
     c.close()
-    if not rows:
-        abort(404)
+    if not rows: abort(404)
 
-    # --- Precheck op bestaan S3-objecten
+    # Precheck op ontbrekende S3-objecten
     missing = []
     try:
         for r in rows:
             try:
                 s3.head_object(Bucket=S3_BUCKET, Key=r["s3_key"])
             except ClientError as ce:
-                code = (ce.response.get("Error", {}) or {}).get("Code", "")
+                code = ce.response.get("Error", {}).get("Code", "")
                 if code in {"NoSuchKey", "NotFound", "404"}:
                     missing.append(r["path"] or r["name"])
                 else:
@@ -2316,28 +2311,17 @@ def stream_zip(token):
         resp = Response("ZIP precheck mislukt. Zie serverlogs.", status=500, mimetype="text/plain")
         resp.headers["X-Error"] = "zip_precheck_failed"
         return resp
-
     if missing:
         text = "De volgende items ontbreken in S3 en kunnen niet gezipt worden:\n- " + "\n- ".join(missing)
         resp = Response(text, mimetype="text/plain", status=422)
         resp.headers["X-Error"] = "NoSuchKey: " + ", ".join(missing)
         return resp
 
-    # --- ZIP streamen
     try:
-        comp = getattr(zipstream, "ZIP_DEFLATED", 8)
+        # === zipstream-ng 1.7.1 API ===
+        zf = zipstream.ZipFile(mode='w', compression=getattr(zipstream, 'ZIP_DEFLATED', 0), allowZip64=True)
 
-        # Constructor-fallbacks voor verschillende zipstream(-ng) varianten
-        z = None
-        try:
-            z = zipstream.ZipStream(mode="w", compression=comp)
-        except TypeError:
-            try:
-                z = zipstream.ZipStream(compression=comp)
-            except TypeError:
-                z = zipstream.ZipStream()  # laatste redmiddel
-
-        def s3_iter(key):
+        def s3_reader(key):
             obj = s3.get_object(Bucket=S3_BUCKET, Key=key)
             for chunk in obj["Body"].iter_chunks(1024 * 512):
                 if chunk:
@@ -2345,25 +2329,23 @@ def stream_zip(token):
 
         for r in rows:
             arcname = r["path"] or r["name"]
-            it = s3_iter(r["s3_key"])
+            zf.write_iter(arcname, s3_reader(r["s3_key"]))
 
-            # API-fallbacks: write_iter → add → add_iter
-            if hasattr(z, "write_iter"):
-                z.write_iter(arcname, it)
-            elif hasattr(z, "add"):
-                z.add(arcname=arcname, iterable=it)
-            elif hasattr(z, "add_iter"):
-                z.add_iter(arcname, it)
-            else:
-                raise RuntimeError("zipstream-ng: geen geschikte add/write_iter methode gevonden")
+        def generate():
+            for chunk in zf:
+                yield chunk
 
         filename = (pkg["title"] or f"onderwerp-{token}").strip().replace('"', '')
         if not filename.lower().endswith(".zip"):
             filename += ".zip"
 
-        # ZipStream is zelf een iterator; Response kan daar direct op streamen
-        resp = Response(z, mimetype="application/zip", direct_passthrough=True)
-        resp.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+        from urllib.parse import quote as urlquote
+        ascii_name = filename.encode("ascii", "ignore").decode() or "download.zip"
+
+        resp = Response(stream_with_context(generate()), mimetype="application/zip")
+        resp.headers["Content-Disposition"] = (
+            f'attachment; filename="{ascii_name}"; filename*=UTF-8\'\'{urlquote(filename)}'
+        )
         resp.headers["X-Filename"] = filename
         return resp
 
