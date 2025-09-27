@@ -1920,20 +1920,40 @@ def paypal_access_token():
 def list_packages_with_stats(tenant_slug: str, limit: int = 200) -> list[dict]:
     c = db()
     try:
-        rows = c.execute("""
-            SELECT p.token, p.title, p.expires_at, p.created_at,
-                   COUNT(i.id) AS files_count,
-                   COALESCE(SUM(i.size_bytes), 0) AS total_bytes
-            FROM packages p
-            LEFT JOIN items i ON i.token = p.token AND i.tenant_id = p.tenant_id
-            WHERE p.tenant_id = ?
-            GROUP BY p.token, p.title, p.expires_at, p.created_at
-            ORDER BY p.created_at DESC
-            LIMIT ?
-        """, (tenant_slug, limit)).fetchall()
+        # bestaat tenant_id in beide tabellen?
+        has_tenant = _col_exists(c, "packages", "tenant_id") and _col_exists(c, "items", "tenant_id")
+
+        if has_tenant:
+            rows = c.execute("""
+                SELECT p.token, p.title, p.expires_at, p.created_at,
+                       COUNT(i.id) AS files_count,
+                       COALESCE(SUM(i.size_bytes), 0) AS total_bytes
+                FROM packages p
+                LEFT JOIN items i
+                  ON i.token = p.token AND i.tenant_id = p.tenant_id
+                WHERE p.tenant_id = ?
+                GROUP BY p.token, p.title, p.expires_at, p.created_at
+                ORDER BY p.created_at DESC
+                LIMIT ?
+            """, (tenant_slug, limit)).fetchall()
+        else:
+            # fallback: oude schema zonder tenant_id
+            rows = c.execute("""
+                SELECT p.token, p.title, p.expires_at, p.created_at,
+                       COUNT(i.id) AS files_count,
+                       COALESCE(SUM(i.size_bytes), 0) AS total_bytes
+                FROM packages p
+                LEFT JOIN items i
+                  ON i.token = p.token
+                GROUP BY p.token, p.title, p.expires_at, p.created_at
+                ORDER BY p.created_at DESC
+                LIMIT ?
+            """, (limit,)).fetchall()
+
         return [dict(r) for r in rows]
     finally:
         c.close()
+
 
 def list_files_in_package(token: str, tenant_slug: str) -> list[dict]:
     c = db()
@@ -2657,16 +2677,20 @@ def billing_change():
 
 
 def tenant_usage_bytes(tenant_slug: str) -> int:
-    """Som van alle item-bytes voor een tenant."""
     c = db()
     try:
-        row = c.execute(
-            "SELECT COALESCE(SUM(size_bytes), 0) AS tot FROM items WHERE tenant_id=?",
-            (tenant_slug,)
-        ).fetchone()
-        return int(row["tot"] or 0)
+        if _col_exists(c, "items", "tenant_id"):
+            row = c.execute(
+                "SELECT COALESCE(SUM(size_bytes), 0) AS total FROM items WHERE tenant_id=?",
+                (tenant_slug,)
+            ).fetchone()
+        else:
+            # fallback: totale som (oude schema)
+            row = c.execute("SELECT COALESCE(SUM(size_bytes), 0) AS total FROM items").fetchone()
+        return int(row["total"] or 0)
     finally:
         c.close()
+
 
 # ---- Helpers voor beheer-overzicht ----
 def list_items_with_packages(tenant_slug: str):
@@ -2770,23 +2794,33 @@ def billing_page():
 
     used  = tenant_usage_bytes(t)
     limit = user_limit_bytes(user_email)
-    pct   = 0 if limit <= 0 else min(999, round(used / limit * 100))
+    pct   = 0 if limit <= 0 else min(999, round(used / max(1, limit) * 100))
 
+    # subscriptions veilig lezen (met/zonder tenant_id)
     c = db()
     try:
-        sub = c.execute(
-            """SELECT * FROM subscriptions
-               WHERE login_email=? AND tenant_id=?
-               ORDER BY id DESC LIMIT 1""",
-            (user_email, t)
-        ).fetchone()
+        if _col_exists(c, "subscriptions", "tenant_id"):
+            sub = c.execute(
+                """SELECT * FROM subscriptions
+                   WHERE login_email=? AND tenant_id=?
+                   ORDER BY id DESC LIMIT 1""",
+                (user_email, t)
+            ).fetchone()
+        else:
+            sub = c.execute(
+                """SELECT * FROM subscriptions
+                   WHERE login_email=?
+                   ORDER BY id DESC LIMIT 1""",
+                (user_email,)
+            ).fetchone()
     finally:
         c.close()
 
-    # NIEUW: 1 rij per pakket
-    rows = list_packages_with_stats(t, user_email)
+    # ALLE pakketten van de tenant (of alles bij oud schema)
+    packs_raw = list_packages_with_stats(t)
+
     packs = []
-    for r in rows:
+    for r in packs_raw:
         try:
             exp_dt = datetime.fromisoformat(r["expires_at"])
         except Exception:
@@ -2802,19 +2836,15 @@ def billing_page():
 
     return render_template_string(
         BILLING_HTML,
-        used=used,
-        limit=limit,
-        pct=pct,
+        used=used, limit=limit, pct=pct,
         sub=sub,
-        tenant_label=current_tenant()["slug"],
+        tenant_label=t,
         used_h=human(used),
         limit_h=human(limit),
         over=used > limit,
-        base_css=BASE_CSS,
-        bg=BG_DIV,
-        head_icon=HTML_HEAD_ICON,
-        packs=packs,               # << doorgeven aan template
-        user=session.get("user"),  # voor header
+        base_css=BASE_CSS, bg=BG_DIV, head_icon=HTML_HEAD_ICON,
+        packs=packs,
+        user=session.get("user"),
     )
 
 @app.route("/debug/tenant-usage")
