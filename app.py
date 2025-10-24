@@ -34,6 +34,9 @@ from botocore.exceptions import ClientError, BotoCoreError
 # ---------------- Logging ----------------
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 log = logging.getLogger("app")
+# --- Guest / trial config ---
+GUEST_TRIAL_DAYS = int(os.environ.get("GUEST_TRIAL_DAYS", "7"))
+GUEST_MAX_BYTES = int(os.environ.get("GUEST_MAX_BYTES", str(3 * 1024 * 1024 * 1024)))  # 3 GB
 
 # ---------------- Paths / Storage ----------------
 BASE_DIR = Path(__file__).parent                      # /opt/render/project/src
@@ -199,7 +202,9 @@ def migrate_add_tenant_columns():
 # Init meteen bij import
 init_db()
 migrate_add_tenant_columns()
-
+  # packages.is_guest (markeer pakketten die door gastmodus zijn gemaakt)
+if not _col_exists(conn, "packages", "is_guest"):
+            conn.execute("ALTER TABLE packages ADD COLUMN is_guest INTEGER DEFAULT 0")
 
 # ──────────────────────────────────────────────────────────────
 # Helpers voor usage & migratie
@@ -469,6 +474,12 @@ LOGIN_HTML = """
           <a class="btn secondary" href="{{ url_for('contact') }}" rel="nofollow">Account aanvragen</a>
         </div>
       </form>
+  <a class="btn secondary" href="{{ url_for('guest_login') }}" style="margin-top:.5rem;width:100%">
+    Verder als gast (proef)
+  </a>
+  <p class="small" style="margin-top:.35rem">
+    Gastmodus: max <strong>3&nbsp;GB</strong> per pakket en proefperiode <strong>1 week</strong>.
+  </p>
 
       <p class="footer small" style="margin-top:1.2rem">Snel. Veilig. Nederlands platform.</p>
     </section>
@@ -631,6 +642,7 @@ LOGIN_HTML = """
 </script>
 </body>
 </html>
+    
 """
 
 
@@ -702,16 +714,23 @@ h1{margin:.25rem 0 1rem;color:var(--brand);font-size:2.1rem}
       </div>
       <div>
 <label for="expDays">Verloopt na</label>
-<select id="expDays" class="input">
-  <option value="1">1 dag</option>
-  <option value="3">3 dagen</option>
-  <option value="7">7 dagen</option>
-  <option value="30" selected>30 dagen</option>
-  <option value="60">60 dagen</option>
-  <option value="365">1 jaar</option>
-  <!-- Wil je “voor altijd bewaren”? Zet deze aan en zie JS hieronder -->
-  <!-- <option value="forever">Voor altijd bewaren</option> -->
-</select>
+{% if is_guest %}
+  <select id="expDays" class="input" disabled>
+    <option value="7" selected>7 dagen (gast)</option>
+  </select>
+  <div class="helper">Gastmodus: proef loopt <strong>1 week</strong> en het pakket is beperkt tot <strong>3&nbsp;GB</strong>.</div>
+{% else %}
+  <select id="expDays" class="input">
+    <option value="1">1 dag</option>
+    <option value="3">3 dagen</option>
+    <option value="7" selected>7 dagen</option>
+    <option value="30">30 dagen</option>
+    <option value="60">60 dagen</option>
+    <option value="365">1 jaar</option>
+  </select>
+{% endif %}
+
+
       </div>
     </div>
 
@@ -2048,14 +2067,43 @@ def debug_dbcols():
     out["tenants_in_packages"] = [r[0] for r in rows]
     c.close()
     return jsonify(out)
-
+@app.before_request
+def guest_expiry_guard():
+    # Controleer of de gast-sessie verlopen is
+    if session.get("is_guest"):
+        try:
+            gu = session.get("guest_until")
+            if not gu or datetime.fromisoformat(gu) <= datetime.now(timezone.utc):
+                session.clear()
+                return redirect(url_for("login"))
+        except Exception:
+            session.clear()
+            return redirect(url_for("login"))
+            
 @app.route("/")
 def index():
-    if not logged_in(): return redirect(url_for("login"))
-    return render_template_string(INDEX_HTML, user=session.get("user"), base_css=BASE_CSS, bg=BG_DIV, head_icon=HTML_HEAD_ICON)
+    if not logged_in():
+        return redirect(url_for("login"))
+    return render_template_string(
+        INDEX_HTML,
+        user=session.get("user"),
+        is_guest=session.get("is_guest", False),   # 👈 deze regel toevoegen
+        base_css=BASE_CSS,
+        bg=BG_DIV,
+        head_icon=HTML_HEAD_ICON
+    )
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+@app.route("/guest-login")
+def guest_login():
+    session.clear()
+    session["authed"] = True
+    session["user"] = "Gast"
+    session["is_guest"] = True
+    session["guest_until"] = (datetime.now(timezone.utc) + timedelta(days=GUEST_TRIAL_DAYS)).isoformat()
+    return redirect(url_for("index"))
     if request.method == "POST":
         email = (request.form.get("email") or "").lower().strip()
         pw    = (request.form.get("password") or request.form.get("pw_ui") or "").strip()
@@ -2090,6 +2138,8 @@ def logout():
 # -------------- Upload API --------------
 @app.route("/package-init", methods=["POST"])
 def package_init():
+@app.route("/package-init", methods=["POST"])
+def package_init():
     if not logged_in(): abort(401)
     data = request.get_json(force=True, silent=True) or {}
     days = float(data.get("expiry_days") or 24)
@@ -2097,15 +2147,23 @@ def package_init():
     title_raw = (data.get("title") or "").strip()
     title = title_raw[:120] if title_raw else None
     token = uuid.uuid4().hex[:10]
+
+    # Gast? -> max 7 dagen
+    is_guest = bool(session.get("is_guest"))
+    if is_guest:
+        days = min(days, float(GUEST_TRIAL_DAYS))
+
     expires_at = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
     pw_hash = generate_password_hash(pw) if pw else None
     t = current_tenant()["slug"]
+
     c = db()
-    c.execute("""INSERT INTO packages(token,expires_at,password_hash,created_at,title,tenant_id)
-                 VALUES(?,?,?,?,?,?)""",
-              (token, expires_at, pw_hash, datetime.now(timezone.utc).isoformat(), title, t))
+    c.execute("""INSERT INTO packages(token,expires_at,password_hash,created_at,title,tenant_id,is_guest)
+                 VALUES(?,?,?,?,?,?,?)""",
+              (token, expires_at, pw_hash, datetime.now(timezone.utc).isoformat(), title, t, 1 if is_guest else 0))
     c.commit(); c.close()
     return jsonify(ok=True, token=token)
+
     
 @app.route("/put-init", methods=["POST"])
 def put_init():
@@ -2136,19 +2194,32 @@ def put_complete():
     path  = d.get("path") or name
     if not (token and key and name):
         return jsonify(ok=False, error="Onvolledig afronden (PUT)"), 400
-    try:
-        head = s3.head_object(Bucket=S3_BUCKET, Key=key)
-        size = int(head.get("ContentLength", 0))
-        t = current_tenant()["slug"]
-        c = db()
-        c.execute("""INSERT INTO items(token,s3_key,name,path,size_bytes,tenant_id)
-                     VALUES(?,?,?,?,?,?)""",
-                  (token, key, name, path, size, t))
-        c.commit(); c.close()
-        return jsonify(ok=True)
-    except (ClientError, BotoCoreError):
-        log.exception("put_complete failed")
-        return jsonify(ok=False, error="server_error"), 500
+   try:
+    head = s3.head_object(Bucket=S3_BUCKET, Key=key)
+    size = int(head.get("ContentLength", 0))
+    t = current_tenant()["slug"]
+
+    # ✅ Quota-check vóór DB-insert (gastpakket max 3 GB)
+    if _guest_package_would_exceed(token, t, size):
+        # Optioneel: opgeruimd staat netjes – verwijder het zojuist ge-uploade object
+        try:
+            s3.delete_object(Bucket=S3_BUCKET, Key=key)
+        except Exception:
+            pass
+        # 413 = Payload Too Large / limiet overschreden
+        return jsonify(ok=False, error="guest_quota_exceeded", limit=GUEST_MAX_BYTES), 413
+
+    c = db()
+    c.execute("""INSERT INTO items(token,s3_key,name,path,size_bytes,tenant_id)
+                 VALUES(?,?,?,?,?,?)""",
+              (token, key, name, path, size, t))
+    c.commit(); c.close()
+    return jsonify(ok=True)
+
+except (ClientError, BotoCoreError):
+    log.exception("put_complete failed")
+    return jsonify(ok=False, error="server_error"), 500
+
 
 @app.route("/mpu-init", methods=["POST"])
 def mpu_init():
@@ -2212,7 +2283,18 @@ def mpu_complete():
             else: raise
         t = current_tenant()["slug"]
         c = db()
+            t = current_tenant()["slug"]
+
+        # Gast-quota bewaken (met bekende size)
+        if _guest_package_would_exceed(token, t, size):
+            return jsonify(ok=False, error="guest_quota_exceeded", limit=GUEST_MAX_BYTES), 413
+
+        c = db()
         c.execute("""INSERT INTO items(token,s3_key,name,path,size_bytes,tenant_id)
+                     VALUES(?,?,?,?,?,?)""",
+                  (token, key, name, path, size, t))
+   
+    c.execute("""INSERT INTO items(token,s3_key,name,path,size_bytes,tenant_id)
                      VALUES(?,?,?,?,?,?)""",
                   (token, key, name, path, size, t))
         c.commit(); c.close()
@@ -2481,6 +2563,31 @@ def _send_contact_email(form):
     )
 
     send_email(MAIL_TO, "Nieuwe aanvraag transfer-oplossing", body)
+def _guest_package_would_exceed(token: str, tenant_slug: str, add_size: int) -> bool:
+    """
+    True -> als dit pakket (gast) met add_size bytes de 3 GB limiet zou overschrijden.
+    token:   pakket-token
+    tenant_slug: huidige tenant (bijv. 'oldehanter')
+    add_size: grootte van het (nieuw) te registreren bestand in bytes
+    """
+    c = db()
+    try:
+        pkg = c.execute(
+            "SELECT is_guest FROM packages WHERE token=? AND tenant_id=?",
+            (token, tenant_slug)
+        ).fetchone()
+        # Geen pakket of geen gast -> geen quota-check
+        if not pkg or int(pkg["is_guest"] or 0) == 0:
+            return False
+
+        current_total = c.execute(
+            "SELECT COALESCE(SUM(size_bytes),0) FROM items WHERE token=? AND tenant_id=?",
+            (token, tenant_slug)
+        ).fetchone()[0]
+
+        return (int(current_total) + int(add_size)) > GUEST_MAX_BYTES
+    finally:
+        c.close()
 
 @app.route("/contact", methods=["GET","POST"])
 def contact():
