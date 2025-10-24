@@ -186,6 +186,9 @@ def _col_exists(conn, table, col):
 def migrate_add_tenant_columns():
     conn = db()
     try:
+        if not _col_exists(conn, "packages", "is_guest"):
+    conn.execute("ALTER TABLE packages ADD COLUMN is_guest INTEGER DEFAULT 0")
+
         if not _col_exists(conn, "packages", "tenant_id"):
             conn.execute("ALTER TABLE packages ADD COLUMN tenant_id TEXT")
             conn.execute("UPDATE packages SET tenant_id = 'downloadlink' WHERE tenant_id IS NULL")
