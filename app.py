@@ -2202,14 +2202,12 @@ def put_complete():
     size = int(head.get("ContentLength", 0))
     t = current_tenant()["slug"]
 
-    # ✅ Quota-check vóór DB-insert (gastpakket max 3 GB)
+    # Quota-check vóór DB-insert
     if _guest_package_would_exceed(token, t, size):
-        # Optioneel: opgeruimd staat netjes – verwijder het zojuist ge-uploade object
         try:
-            s3.delete_object(Bucket=S3_BUCKET, Key=key)
+            s3.delete_object(Bucket=S3_BUCKET, Key=key)  # optioneel opruimen
         except Exception:
             pass
-        # 413 = Payload Too Large / limiet overschreden
         return jsonify(ok=False, error="guest_quota_exceeded", limit=GUEST_MAX_BYTES), 413
 
     c = db()
@@ -2218,6 +2216,11 @@ def put_complete():
               (token, key, name, path, size, t))
     c.commit(); c.close()
     return jsonify(ok=True)
+
+except (ClientError, BotoCoreError):
+    log.exception("put_complete failed")
+    return jsonify(ok=False, error="server_error"), 500
+
 
 except (ClientError, BotoCoreError):
     log.exception("put_complete failed")
