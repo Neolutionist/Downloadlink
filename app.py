@@ -58,7 +58,7 @@ def _env(name: str, default: str | None = None, required: bool = False) -> str:
 
 AUTH_EMAIL    = _env("AUTH_EMAIL", "info@downloadlink.nl")
 # Vast wachtwoord -> liever via env zetten:
-AUTH_PASSWORD = _env("AUTH_PASSWORD", "Gr8w0rkm8!")
+AUTH_PASSWORD = _env("AUTH_PASSWORD", "Hulsmaat")
 
 S3_BUCKET       = _env("S3_BUCKET", required=True)
 S3_REGION       = _env("S3_REGION", "eu-central-003")
@@ -96,12 +96,12 @@ REVERSE_PLAN_MAP = {v: k for k, v in PLAN_MAP.items() if v}
 USERS: dict[str, dict] = {
     # Bestaande beheeraccount (limiet 10 GB)
     (_env("AUTH_EMAIL", "info@downloadlink.nl")).lower(): {
-        "password": _env("AUTH_PASSWORD", "Gr8w0rkm8!"),
+        "password": _env("AUTH_PASSWORD", "Hulsmaat"),
         "limit_gb": 10.0,
     },
     # Nieuwe gebruiker conStabiel (limiet 2 GB)
     "info@constabiel.nl": {
-        "password": "Gr8w0rkm8!",
+        "password": "Hulsmaat",
         "limit_gb": 2.0,
     },
     # >>> HIER TOEGEVOEGD <<<
