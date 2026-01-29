@@ -1137,7 +1137,20 @@ CONTACT_HTML = r"""
 .section-gap{margin-top:1rem}
 .divider{height:1px;background:#e5e7eb;margin:1.2rem 0}
 @media (max-width:680px){.form-actions{gap:.5rem}}
-</style></head><body>
+</style>
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-17916377435">
+</script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'AW-17916377435');
+</script>
+
+</head><body>
 {{ bg|safe }}
 <div class="wrap"><div class="card">
   <h1>Eigen transfer-oplossing aanvragen</h1>
