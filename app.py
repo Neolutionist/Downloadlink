@@ -1129,15 +1129,7 @@ h1{margin:.2rem 0 1rem;color:var(--brand)}
 """
 
 CONTACT_HTML = r"""
-<!doctype html><html lang="nl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Eigen transfer-oplossing – downloadlink.nl</title>{{ head_icon|safe }}<style>{{ base_css }}
-.form-actions{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-top:1rem}
-.notice{display:block;margin-top:.5rem;color:#334155}
-.helper{font-size:.9rem;color:#475569;margin-top:.35rem}
-.section-gap{margin-top:1rem}
-.divider{height:1px;background:#e5e7eb;margin:1.2rem 0}
-@media (max-width:680px){.form-actions{gap:.5rem}}
-</style>
+<!doctype html><html lang="nl"><head>
 
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17916377435">
@@ -1148,6 +1140,17 @@ CONTACT_HTML = r"""
   gtag('js', new Date());
 
   gtag('config', 'AW-17916377435');
+</script>
+
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Eigen transfer-oplossing – downloadlink.nl</title>{{ head_icon|safe }}<style>{{ base_css }}
+.form-actions{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-top:1rem}
+.notice{display:block;margin-top:.5rem;color:#334155}
+.helper{font-size:.9rem;color:#475569;margin-top:.35rem}
+.section-gap{margin-top:1rem}
+.divider{height:1px;background:#e5e7eb;margin:1.2rem 0}
+@media (max-width:680px){.form-actions{gap:.5rem}}
+</style>
 </script>
 
 </head><body>
